@@ -9,7 +9,20 @@
 </head>
 <body>
     <label for="generations_count">Generations count:</label>
-    <input type="number" name="generations_count" id="generations_count">
+    <input type="number" name="generations_count" id="generations_count" value="100"> <br>
     <button id="button_go">Go!</button>
+    <button id="button_go_one">Go one</button>
+    <p id="error_nn"></p>
+    <script>
+        document.getElementById('button_go').onclick = () => {
+            for (let index = 0; index < document.getElementById('generations_count').value; index++) {
+                gen.passOneGeneration();
+            }
+        };
+
+        document.getElementById('button_go_one').onclick = () => {
+            gen.passOneGeneration();
+        };
+    </script>
 </body>
 </html>

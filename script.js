@@ -102,33 +102,47 @@ class NeuralNet {
     }
 
     // Function to copy the values from another NeuralNet instance
-    copy(otherNet) {
+    copy(otherNet, changeCoefficient = false, mutationRate = 0.01, mutationScale = 0.1) {
         if (!(otherNet instanceof NeuralNet)) throw new Error("The argument is not a valid NeuralNet instance!");
-
+    
         // Copy inputs_layer
         this.inputs_layer = otherNet.inputs_layer.map(neural => {
             const newNeural = new Neural();
             newNeural.set_value(neural.getValue());
             return newNeural;
         });
-
+    
         // Copy hidden_layer
         this.hidden_layer = otherNet.hidden_layer.map(layer => layer.map(neural => {
             const newNeural = new Neural();
             newNeural.set_value(neural.getValue());
             return newNeural;
         }));
-
+    
         // Copy outputs_layer
         this.outputs_layer = otherNet.outputs_layer.map(neural => {
             const newNeural = new Neural();
             newNeural.set_value(neural.getValue());
             return newNeural;
         });
-
+    
         // Copy coefficients
         this.coefficients = otherNet.coefficients.map(matrix => matrix.map(row => [...row]));
-    }
+    
+        // Apply mutation to coefficients if changeCoefficient is true
+        if (changeCoefficient) {
+            for (let i = 0; i < this.coefficients.length; i++) {
+                for (let j = 0; j < this.coefficients[i].length; j++) {
+                    for (let k = 0; k < this.coefficients[i][j].length; k++) {
+                        // Apply mutation based on mutationRate and mutationScale
+                        if (Math.random() < mutationRate) {
+                            this.coefficients[i][j][k] += (Math.random() - 0.5) * mutationScale; // Small random change
+                        }
+                    }
+                }
+            }
+        }
+    }    
 
     // Calculate function
     calculate(inputs) {
@@ -172,14 +186,71 @@ class NeuralNet {
     }
 }
 
-// Create a NeuralNet instance
-const net = new NeuralNet(3, 5, 10, 5, RoundType.NO_ROUND, RoundType.TANH, RoundType.TANH);
+class LearningDatabase{
+    constructor(inputs_count, outputs_count){
+        this.inputs = [];
+        this.outputs = [];
+        this.inputs_count = inputs_count;
+        this.outputs_count = outputs_count;
+    }
+    isValidList(value, length) {
+        return Array.isArray(value) && value.length === length && value.every(item => typeof item === 'number');
+    }    
+    AddItem(learning_inputs, expected_outputs){
+        if(this.isValidList(learning_inputs, this.inputs_count) && this.isValidList(expected_outputs, this.outputs_count)){
+            this.inputs.push(learning_inputs);
+            this.outputs.push(expected_outputs);
+        }
+        else throw new Error("Given lists are bad");
+    }
+}
 
-// Calculate the outputs for a set of inputs
-const inputs = [0.5, -1.2, 0.8];
-var outputs = net.calculate(inputs);
+class Generation{
+    constructor(inputs_count, outputs_count, neurals_count, hidden_layers_count, inp_round_type, n_round_type, out_round_type, generation_size, learning_database){
+        this.generation = [];
+        this.learning_database = learning_database;
+        for (let index = 0; index < generation_size; index++) {
+            this.generation.push(new NeuralNet(inputs_count, outputs_count, neurals_count, hidden_layers_count, inp_round_type, n_round_type, out_round_type));
+        }
+    }
+    bestNN() {
+        var the_smallest_error = Infinity;
+        var index_nn = 0;
+        for (let index = 0; index < this.generation.length; index++) {
+            const element = this.generation[index];
+            var error_nn = 0;
+            for (let i = 0; i < this.learning_database.inputs.length; i++) {
+                const inputs_ = this.learning_database.inputs[i];
+                const outputs_ = this.learning_database.outputs[i];
+                var result = element.calculate(inputs_);
+                var error_ = outputs_.reduce((sum, value, idx) => {
+                    const diff = value - result[idx];
+                    return sum + Math.pow(diff, 2);
+                }, 0);
+                error_nn += error_;
+            }
+            if(the_smallest_error > error_nn) {
+                the_smallest_error = error_nn;
+                index_nn = index;
+            }
+        }
+        console.log("Error: " + the_smallest_error);
+        document.getElementById('error_nn').innerText = "Error: " + the_smallest_error;
+        return this.generation[index_nn];
+    }
+    passOneGeneration(mutationRate = 0.01, mutationScale = 0.1){
+        var best_nn = this.bestNN();
+        this.generation.forEach((nn, index) => {
+            nn.copy(best_nn, index != 0, mutationRate, mutationScale);
+        });
+    }
+}
 
-console.log(outputs);  // Should log the final output values
-outputs = net.calculate(inputs);
+var learningDatabase = new LearningDatabase(1, 1);
+for (let index = 0; index < 100; index++) {
+    learningDatabase.AddItem([index], [Math.sqrt(index)]);
+}
 
-console.log(outputs);  // Should log the final output values
+var gen = new Generation(1, 1, 5, 5, RoundType.NO_ROUND, RoundType.TANH, RoundType.NO_ROUND, 50, learningDatabase);
+
+console.log(learningDatabase);
