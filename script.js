@@ -247,10 +247,25 @@ class Generation{
 }
 
 var learningDatabase = new LearningDatabase(1, 1);
-for (let index = 0; index < 100; index++) {
-    learningDatabase.AddItem([index], [Math.sqrt(index)]);
+for (let index = -20; index < 100; index++) {
+    learningDatabase.AddItem([index], [index >= 0 ? Math.sqrt(index) : -1]);
+}
+
+function TextToInputs(text, maxInputsCount) {
+    var numbers_list = text.split('').map(char => char.charCodeAt(0));
+    var result = [];
+    numbers_list.forEach(number => {
+        result.push(Math.floor(number / 100.0));
+        result.push(Math.floor(number / 10) % 10);
+        result.push(Math.floor(number % 10));
+    });
+    if(result.length > maxInputsCount) throw new Error("Text was too long");
+    return result;
 }
 
 var gen = new Generation(1, 1, 5, 5, RoundType.NO_ROUND, RoundType.TANH, RoundType.NO_ROUND, 50, learningDatabase);
 
 console.log(learningDatabase);
+console.log(TextToInputs("rf"));
+
+var nn1 = gen.generation[0];
