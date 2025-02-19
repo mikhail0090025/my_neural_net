@@ -247,8 +247,8 @@ class Generation{
 }
 
 var learningDatabase = new LearningDatabase(1, 1);
-for (let index = 0; index < 100; index++) {
-    learningDatabase.AddItem([index], [Math.sqrt(index)]);
+for (let index = -500; index < 500; index++) {
+    learningDatabase.AddItem([index], [Math.sin(index / 57.29577951)]);
 }
 
 var gen = new Generation(1, 1, 5, 5, RoundType.NO_ROUND, RoundType.TANH, RoundType.NO_ROUND, 50, learningDatabase);

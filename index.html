@@ -3,26 +3,83 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
+    <title>Neural Network Learning</title>
     <link rel="stylesheet" href="style.css">
     <script src="script.js"></script>
 </head>
 <body>
     <label for="generations_count">Generations count:</label>
     <input type="number" name="generations_count" id="generations_count" value="100"> <br>
-    <button id="button_go">Go!</button>
+    
+    <button id="button_go">Start</button>
     <button id="button_go_one">Go one</button>
+    
     <p id="error_nn"></p>
+    <p id="generations_passed"></p>
+    
+    <p id="mutationRate"></p>
+    <button id="mutationRate_plus">*10</button>
+    <button id="mutationRate_minus">/10</button><br>
+
+    <p id="mutationScale"></p>
+    <button id="mutationScale_plus">*10</button>
+    <button id="mutationScale_minus">/10</button><br>
+
     <script>
+        var mutationRate = 0.01;
+        var mutationScale = 0.1;
+        var learning = false;
+        var currentGeneration = 0;
+        var totalGenerations = 100; // Default
+        var generationsPassed = 0;
+
+        RefreshUI();
+
+        function RefreshUI() {
+            document.getElementById('mutationRate').innerText = "Mutation Rate: " + mutationRate;
+            document.getElementById('mutationScale').innerText = "Mutation Scale: " + mutationScale;
+            document.getElementById('generations_passed').innerText = "Generations passed: " + generationsPassed;
+        }
+
+        document.getElementById('mutationRate_plus').onclick = () => { mutationRate *= 10; RefreshUI(); }
+        document.getElementById('mutationRate_minus').onclick = () => { mutationRate /= 10; RefreshUI(); }
+        document.getElementById('mutationScale_plus').onclick = () => { mutationScale *= 10; RefreshUI(); }
+        document.getElementById('mutationScale_minus').onclick = () => { mutationScale /= 10; RefreshUI(); }
+
         document.getElementById('button_go').onclick = () => {
-            for (let index = 0; index < document.getElementById('generations_count').value; index++) {
-                gen.passOneGeneration();
+            learning = !learning;
+            if (learning) {
+                totalGenerations = parseInt(document.getElementById('generations_count').value);
+                document.getElementById('button_go').innerText = "Pause";
+                startLearning();
+            } else {
+                document.getElementById('button_go').innerText = "Start";
             }
         };
 
         document.getElementById('button_go_one').onclick = () => {
             gen.passOneGeneration();
+            console.log("One generation passed");
+            generationsPassed++;
+            RefreshUI();
         };
+
+        function startLearning() {
+            if (!learning || currentGeneration >= totalGenerations) {
+                document.getElementById('button_go').innerText = "Start";
+                currentGeneration = 0;
+                return;
+            }
+
+            console.log(`Generation: ${currentGeneration + 1} / ${totalGenerations}`);
+            gen.passOneGeneration();
+
+            currentGeneration++;
+            generationsPassed++;
+            RefreshUI();
+
+            setTimeout(startLearning, 10); // Delay to prevent freezing UI
+        }
     </script>
 </body>
 </html>
