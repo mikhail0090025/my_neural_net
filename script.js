@@ -1,6 +1,7 @@
 const RoundType = {
     NO_ROUND: 1,
-    TANH: 2
+    TANH: 2,
+    TO_INT: 3
 };
 
 function isValidRoundType(value) {
@@ -23,6 +24,9 @@ class Neural {
             this.rounded = true;
             if (round_type === RoundType.TANH) {
                 this.value = Math.tanh(this.value);
+            }
+            else if (round_type === RoundType.TO_INT) {
+                this.value = Math.round(this.value);
             }
         } else throw new Error("Given value is not valid round type!");
     }
@@ -203,6 +207,7 @@ class LearningDatabase{
         }
         else throw new Error("Given lists are bad");
     }
+    get Size() {return this.inputs.length;}
 }
 
 class Generation{
@@ -234,7 +239,6 @@ class Generation{
                 index_nn = index;
             }
         }
-        console.log("Error: " + the_smallest_error);
         document.getElementById('error_nn').innerText = "Error: " + the_smallest_error;
         return this.generation[index_nn];
     }
@@ -244,12 +248,6 @@ class Generation{
             nn.copy(best_nn, index != 0, mutationRate, mutationScale);
         });
     }
-}
-
-var learningDatabase = new LearningDatabase(1, 1);
-
-for (let index = -20; index < 100; index++) {
-    learningDatabase.AddItem([index], [index >= 0 ? Math.sqrt(index) : -1]);
 }
 
 function TextToInputs(text, maxInputsCount) {
@@ -264,9 +262,23 @@ function TextToInputs(text, maxInputsCount) {
     return result;
 }
 
-var gen = new Generation(1, 1, 5, 5, RoundType.NO_ROUND, RoundType.TANH, RoundType.NO_ROUND, 50, learningDatabase);
+var learningDatabase = new LearningDatabase(3, 1);
+
+var startNumber = 0;
+var step = 1;
+var maxInput = 1;
+for (let i = -20; i <= 20; i++) {
+    startNumber = i;
+    for (let j = -10; j <= 10; j++) {
+        step = j;
+        learningDatabase.AddItem([(startNumber) / maxInput, (startNumber + step) / maxInput, (startNumber + step + step) / maxInput],
+        [(startNumber + step + step + step) / maxInput]);
+    }
+}
+
+var gen = new Generation(3, 1, 5, 2, RoundType.NO_ROUND, RoundType.TANH, RoundType.NO_ROUND, 50, learningDatabase);
 
 console.log(learningDatabase);
-console.log(TextToInputs("rf"));
+console.log("Learning DB size: " + learningDatabase.Size);
 
 var nn1 = gen.generation[0];
