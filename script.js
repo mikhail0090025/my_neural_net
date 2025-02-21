@@ -1,7 +1,8 @@
 const RoundType = {
     NO_ROUND: 1,
     TANH: 2,
-    TO_INT: 3
+    TO_INT: 3,
+    ZERO_ONE: 4
 };
 
 function isValidRoundType(value) {
@@ -27,6 +28,9 @@ class Neural {
             }
             else if (round_type === RoundType.TO_INT) {
                 this.value = Math.round(this.value);
+            }
+            else if (round_type === RoundType.ZERO_ONE) {
+                this.value = this.value <= 0 ? 0 : 1;
             }
         } else throw new Error("Given value is not valid round type!");
     }
@@ -198,14 +202,21 @@ class LearningDatabase{
         this.outputs_count = outputs_count;
     }
     isValidList(value, length) {
-        return Array.isArray(value) && value.length === length && value.every(item => typeof item === 'number');
+        //return Array.isArray(value) && value.length === length && value.every(item => typeof item === 'number');
+        return Array.isArray(value) && value.length === length;
     }    
     AddItem(learning_inputs, expected_outputs){
         if(this.isValidList(learning_inputs, this.inputs_count) && this.isValidList(expected_outputs, this.outputs_count)){
             this.inputs.push(learning_inputs);
             this.outputs.push(expected_outputs);
         }
-        else throw new Error("Given lists are bad");
+        else {
+            console.log("N1");
+            console.log(learning_inputs, this.inputs_count);
+            console.log("N2");
+            console.log(expected_outputs, this.outputs_count);
+            throw new Error("Given lists are bad");
+        }
     }
     get Size() {return this.inputs.length;}
 }
@@ -218,71 +229,143 @@ class Generation{
             this.generation.push(new NeuralNet(inputs_count, outputs_count, neurals_count, hidden_layers_count, inp_round_type, n_round_type, out_round_type));
         }
     }
-    bestNN() {
-        var the_smallest_error = Infinity;
+    bestNN(negativeSelection) {
+        console.log(negativeSelection);
+        
+        var the_smallest_error = this.calculateError(this.generation[0]);
         var index_nn = 0;
-        for (let index = 0; index < this.generation.length; index++) {
-            const element = this.generation[index];
-            var error_nn = 0;
-            for (let i = 0; i < this.learning_database.inputs.length; i++) {
-                const inputs_ = this.learning_database.inputs[i];
+    
+        this.generation.forEach((element, index) => {
+            var error_nn = this.learning_database.inputs.reduce((totalError, inputs_, i) => {
                 const outputs_ = this.learning_database.outputs[i];
-                var result = element.calculate(inputs_);
-                var error_ = outputs_.reduce((sum, value, idx) => {
-                    const diff = value - result[idx];
-                    return sum + Math.pow(diff, 2);
-                }, 0);
-                error_nn += error_;
-            }
-            if(the_smallest_error > error_nn) {
+                const result = element.calculate(inputs_);
+                return totalError + outputs_.reduce((sum, value, idx) => sum + Math.pow(value - result[idx], 2), 0);
+                //return totalError + outputs_.reduce((sum, value, idx) => sum + Math.abs(Math.pow(value - result[idx], 3)), 0);
+            }, 0) / this.learning_database.Size;
+    
+            if ((negativeSelection && error_nn > the_smallest_error) || (!negativeSelection && error_nn < the_smallest_error)) {
                 the_smallest_error = error_nn;
                 index_nn = index;
             }
-        }
+        });
+    
         document.getElementById('error_nn').innerText = "Error: " + the_smallest_error;
         return this.generation[index_nn];
     }
-    passOneGeneration(mutationRate = 0.01, mutationScale = 0.1){
-        var best_nn = this.bestNN();
+
+    calculateError(nn) {
+        return this.learning_database.inputs.reduce((totalError, inputs_, i) => {
+            const outputs_ = this.learning_database.outputs[i];
+            const result = nn.calculate(inputs_);
+            return totalError + outputs_.reduce((sum, value, idx) => sum + Math.pow(value - result[idx], 2), 0);
+        }, 0) / this.learning_database.Size;
+    }
+    
+    passOneGeneration(mutationRate = 0.01, mutationScale = 0.1, negativeSelection) {
+        var best_nn = this.bestNN(negativeSelection);
         this.generation.forEach((nn, index) => {
-            nn.copy(best_nn, index != 0, mutationRate, mutationScale);
+            nn.copy(best_nn, index !== 0, mutationRate, mutationScale);
         });
     }
 }
 
-function TextToInputs(text, maxInputsCount) {
+function TextToInputs(text, neccessaryInputsCount) {
     var numbers_list = text.split('').map(char => char.charCodeAt(0));
     var result = [];
     numbers_list.forEach(number => {
-        result.push(Math.floor(number / 100.0));
-        result.push(Math.floor(number / 10) % 10);
-        result.push(Math.floor(number % 10));
+        result.push(Math.floor(number / 100.0) * 0.1);
+        result.push((Math.floor(number / 10) % 10) * 0.1);
+        result.push(Math.floor(number % 10) * 0.1);
     });
-    if(result.length > maxInputsCount) throw new Error("Text was too long");
+    while (result.length < neccessaryInputsCount) {
+        result.push(0);
+    }
+    if(result.length > neccessaryInputsCount) throw new Error("Text was too long");
     return result;
 }
 
-var learningDatabase = new LearningDatabase(3, 1);
+var learningDatabase = new LearningDatabase(51, 3);
 
-var startNumber = 0;
-var step = 1;
-var maxInput = 20+8+8+8;
-for (let i = -20; i <= 20; i++) {
-    startNumber = i;
-    for (let j = -10; j <= 10; j++) {
-        step = j;
-        learningDatabase.AddItem([(startNumber) / maxInput, (startNumber + step) / maxInput, (startNumber + step + step) / maxInput],
-        [(startNumber + step + step + step) / maxInput]);
-    }
+var en_words = [
+    "dog", "cat", "house", "car", "tree", "river", "mountain", "computer", "phone", "apple",
+    "banana", "table", "chair", "book", "window", "door", "flower", "sun", "moon", "star",
+    "ocean", "lake", "cloud", "rain", "snow", "sand", "beach", "island", "forest", "desert",
+    "bird", "fish", "tiger", "lion", "elephant", "giraffe", "monkey", "horse", "cow", "sheep",
+    "city", "village", "road", "bridge", "tower", "castle", "church", "school", "hospital",
+    "restaurant", "market", "shop", "bank", "hotel", "airport", "station", "bus", "train",
+    "airplane", "bicycle", "motorcycle", "boat", "ship", "submarine", "rocket", "astronaut",
+    "scientist", "engineer", "doctor", "nurse", "teacher", "student", "artist", "musician",
+    "writer", "actor", "director", "chef", "farmer", "driver", "pilot", "sailor", "soldier",
+    "king", "queen", "prince", "princess", "president", "minister", "lawyer", "judge",
+    "policeman", "firefighter", "detective", "guard", "thief", "criminal", "prison", "weapon",
+    "sword", "shield", "bow", "arrow", "gun", "bullet", "grenade", "bomb", "robot", "machine",
+    "factory", "warehouse", "laboratory", "museum", "library", "cinema", "theater", "stadium",
+    "park", "garden", "farm", "field", "mountain", "canyon", "volcano", "earthquake", "storm",
+    "hurricane", "tornado", "tsunami", "flood", "drought", "famine", "war", "battle", "victory",
+    "defeat", "hero", "villain", "monster", "ghost", "zombie", "vampire", "werewolf", "dragon",
+    "wizard", "witch", "spell", "curse", "magic", "potion", "treasure", "gold", "diamond",
+    "emerald", "ruby", "sapphire", "crystal", "crown", "throne", "kingdom", "empire", "nation",
+    "flag", "anthem", "constitution", "law", "justice", "freedom", "rights", "duty", "honor",
+    "truth", "lie", "fear", "courage", "love", "hate", "happiness", "sadness", "anger",
+    "surprise", "disgust", "envy", "pride", "shame", "guilt", "regret", "forgiveness",
+    "revenge", "peace", "war", "strategy", "tactics", "history", "future", "science",
+    "technology", "physics", "chemistry", "biology", "mathematics", "geometry", "algebra",
+    "calculus", "statistics", "computer", "software", "hardware", "internet", "network",
+    "database", "server", "client", "protocol", "encryption", "hacking", "virus", "security", "word"
+];
+
+var cz_words = [
+    "pes", "kočka", "dům", "auto", "strom", "řeka", "hora", "počítač", "telefon", "jablko",
+    "banán", "stůl", "židle", "kniha", "okno", "dveře", "květina", "slunce", "měsíc", "hvězda",
+    "oceán", "jezero", "mrak", "déšť", "sníh", "písek", "pláž", "ostrov", "les", "poušť",
+    "pták", "ryba", "tygr", "lev", "slon", "žirafa", "opice", "kůň", "kráva", "ovce",
+    "město", "vesnice", "silnice", "most", "věž", "zámek", "kostel", "škola", "nemocnice",
+    "restaurace", "trh", "obchod", "banka", "hotel", "letiště", "stanice", "autobus", "vlak",
+    "letadlo", "kolo", "motocykl", "loď", "loďka", "ponorka", "raketa", "astronaut", "vědec",
+    "inženýr", "doktor", "sestřička", "učitel", "student", "umělec", "hudebník", "spisovatel",
+    "herec", "režisér", "šéfkuchař", "farmář", "řidič", "pilot", "námořník", "voják",
+    "král", "královna", "princ", "princezna", "prezident", "ministr", "advokát", "soudce",
+    "policista", "hasič", "detektiv", "strážce", "zloděj", "zločinec", "vězení", "zbraň",
+    "meč", "štít", "luk", "šíp", "puška", "kulka", "granát", "bomba", "robot", "stroj",
+    "továrna", "sklad", "laboratoř", "muzeum", "knihovna", "kino", "divadlo", "stadion",
+    "park", "zahrada", "farma", "pole", "hora", "kaňon", "vulkán", "zemětřesení", "bouře",
+    "hurikán", "tornádo", "tsunami", "povodeň", "sucho", "hladomor", "válka", "bitva", "vítězství",
+    "porážka", "hrdina", "padouch", "monstrum", "duch", "zombi", "upír", "vlkodlak", "drak",
+    "čaroděj", "čarodějnice", "kouzlo", "kletba", "magie", "lektvar", "poklad", "zlato", "diamant",
+    "smaragd", "rubín", "safír", "krystal", "koruna", "trůn", "království", "říše", "národ",
+    "vlajka", "hymna", "ústava", "zákon", "spravedlnost", "svoboda", "práva", "povinnost", "ctnost",
+    "pravda", "lež", "strach", "odvaha", "láska", "nenávist", "štěstí", "smutek", "hněv",
+    "překvapení", "zhnusení", "závist", "pýcha", "hanba", "vina", "lítost", "odpuštění",
+    "pomsta", "mír", "válka", "strategie", "taktika", "historie", "budoucnost", "věda",
+    "technologie", "fyzika", "chemie", "biologie", "matematika", "geometrie", "algebra",
+    "kalkulus", "statistika", "počítač", "software", "hardware", "internet", "síť",
+    "databáze", "server", "klient", "protokol", "šifrování", "hackování", "virus", "bezpečnost", "slovo"
+];
+
+function Test(word) {
+    var res = nn1.calculate(TextToInputs(word, 51));
+    if(en_words.includes(word)) console.log("Word is in EN database.");
+    if(cz_words.includes(word)) console.log("Word is in CZ database.");
+    console.log(res[0], res[1], res[2]);
+    
+    if(res[0] > res[1] && res[0]>res[2]) return "EN word";
+    else if(res[1] > res[0] && res[1]>res[2]) return "CZ word";
+    else return "Word is in both languages";
 }
 
-var gen = new Generation(3, 1, 10, 3, RoundType.NO_ROUND, RoundType.TANH, RoundType.NO_ROUND, 50, learningDatabase);
+for (let i = 0; i < en_words.length; i++) {
+    if(cz_words.includes(en_words[i])){
+        learningDatabase.AddItem(TextToInputs(en_words[i], 51), [-1, -1, 1]);
+    }
+    learningDatabase.AddItem(TextToInputs(en_words[i], 51), [1, -1, -1]);
+}
+for (let i = 0; i < cz_words.length; i++) {
+    learningDatabase.AddItem(TextToInputs(cz_words[i], 51), [-1, 1, -1]);
+}
+
+var gen = new Generation(51, 3, 40, 2, RoundType.NO_ROUND, RoundType.TANH, RoundType.NO_ROUND, 50, learningDatabase);
 
 console.log(learningDatabase);
 console.log("Learning DB size: " + learningDatabase.Size);
 
 var nn1 = gen.generation[0];
-
-function Test([num1, num2, num3]) {
-    console.log(Math.round(nn1.calculate([num1/maxInput,num2/maxInput,num3/maxInput]) * maxInput));
-}

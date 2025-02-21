@@ -31,6 +31,9 @@
     <button id="mutationScale_minus2">/1.1</button>
     <button id="mutationScale_minus">/10</button><br>
 
+    <label for="negSelection">Negative selection: </label>
+    <input type="checkbox" id="negSelection">
+
     <script>
         var mutationRate = 0.01;
         var mutationScale = 0.1;
@@ -68,7 +71,7 @@
         };
 
         document.getElementById('button_go_one').onclick = () => {
-            gen.passOneGeneration();
+            gen.passOneGeneration(mutationRate, mutationScale, document.getElementById('negSelection').checked);
             generationsPassed++;
             RefreshUI();
         };
@@ -80,7 +83,7 @@
                 return;
             }
 
-            gen.passOneGeneration();
+            gen.passOneGeneration(mutationRate, mutationScale, document.getElementById('negSelection').checked);
             document.getElementsByTagName('progress')[0].value = currentGeneration;
             document.getElementsByTagName('progress')[0].max = totalGenerations;
 
