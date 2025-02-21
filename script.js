@@ -266,7 +266,7 @@ var learningDatabase = new LearningDatabase(3, 1);
 
 var startNumber = 0;
 var step = 1;
-var maxInput = 1;
+var maxInput = 20+8+8+8;
 for (let i = -20; i <= 20; i++) {
     startNumber = i;
     for (let j = -10; j <= 10; j++) {
@@ -276,9 +276,13 @@ for (let i = -20; i <= 20; i++) {
     }
 }
 
-var gen = new Generation(3, 1, 5, 2, RoundType.NO_ROUND, RoundType.TANH, RoundType.NO_ROUND, 50, learningDatabase);
+var gen = new Generation(3, 1, 10, 3, RoundType.NO_ROUND, RoundType.TANH, RoundType.NO_ROUND, 50, learningDatabase);
 
 console.log(learningDatabase);
 console.log("Learning DB size: " + learningDatabase.Size);
 
 var nn1 = gen.generation[0];
+
+function Test([num1, num2, num3]) {
+    console.log(Math.round(nn1.calculate([num1/maxInput,num2/maxInput,num3/maxInput]) * maxInput));
+}
