@@ -2,7 +2,8 @@ const RoundType = {
     NO_ROUND: 1,
     TANH: 2,
     TO_INT: 3,
-    ZERO_ONE: 4
+    ZERO_ONE: 4,
+    RELU: 5,
 };
 
 function isValidRoundType(value) {
@@ -31,6 +32,9 @@ class Neural {
             }
             else if (round_type === RoundType.ZERO_ONE) {
                 this.value = this.value <= 0 ? 0 : 1;
+            }
+            else if (round_type === RoundType.RELU) {
+                this.value = Math.max(0, this.value);
             }
         } else throw new Error("Given value is not valid round type!");
     }
@@ -192,6 +196,45 @@ class NeuralNet {
         // Step 4: Return output values
         return this.outputs_layer.map(neural => neural.getValue());
     }
+
+    LearnByLD(learning_database, learning_sensivity) {
+        learning_database.inputs.forEach((inputs, i) => {
+            const expected_outputs = learning_database.outputs[i];
+            const actual_outputs = this.calculate(inputs);
+    
+            // Обучение выходного слоя
+            let output_errors = [];
+            for (let j = 0; j < this.outputs_layer.length; j++) {
+                output_errors[j] = expected_outputs[j] - actual_outputs[j];
+    
+                // Корректируем веса
+                for (let k = 0; k < this.hidden_layer[this.hidden_layer.length - 1].length; k++) {
+                    this.coefficients[this.coefficients.length - 1][k][j] += learning_sensivity * output_errors[j] * this.hidden_layer[this.hidden_layer.length - 1][k].getValue();
+                }
+            }
+    
+            // Обучение скрытых слоев (обратное распространение)
+            let layer_errors = output_errors;
+            for (let l = this.hidden_layer.length - 1; l >= 0; l--) {
+                let next_layer_errors = new Array(this.hidden_layer[l].length).fill(0);
+    
+                for (let j = 0; j < this.hidden_layer[l].length; j++) {
+                    let error = 0;
+                    for (let k = 0; k < layer_errors.length; k++) {
+                        error += layer_errors[k] * this.coefficients[l + 1][j][k];
+                    }
+                    next_layer_errors[j] = error;
+    
+                    // Корректируем веса
+                    let prev_layer = (l === 0) ? this.inputs_layer : this.hidden_layer[l - 1];
+                    for (let k = 0; k < prev_layer.length; k++) {
+                        this.coefficients[l][k][j] += learning_sensivity * error * prev_layer[k].getValue();
+                    }
+                }
+                layer_errors = next_layer_errors;
+            }
+        });
+    }
 }
 
 class LearningDatabase{
@@ -200,6 +243,7 @@ class LearningDatabase{
         this.outputs = [];
         this.inputs_count = inputs_count;
         this.outputs_count = outputs_count;
+        this.multiplier = 1;
     }
     isValidList(value, length) {
         //return Array.isArray(value) && value.length === length && value.every(item => typeof item === 'number');
@@ -219,153 +263,176 @@ class LearningDatabase{
         }
     }
     get Size() {return this.inputs.length;}
+    multiplyAll(number){
+        this.inputs.forEach((val, i) => {
+            this.inputs[i] = val.map((val2) => val2 * number);
+        });
+        this.outputs.forEach((val, i) => {
+            this.outputs[i] = val.map((val2) => val2 * number);
+        });
+        this.multiplier *= number;
+    }
+    getWithoutMultiplier(){
+        const inverseMultiplier = 1 / this.multiplier;
+        const newInputs = this.inputs.map(val => val.map((val2) => val2 * inverseMultiplier));
+        const newOutputs = this.outputs.map(val => val.map((val2) => val2 * inverseMultiplier));
+
+        const newDatabase = new LearningDatabase(this.inputs_count, this.outputs_count);
+        newDatabase.inputs = newInputs;
+        newDatabase.outputs = newOutputs;
+        newDatabase.multiplier = 1;
+
+        return newDatabase;
+    }
 }
 
 class Generation{
     constructor(inputs_count, outputs_count, neurals_count, hidden_layers_count, inp_round_type, n_round_type, out_round_type, generation_size, learning_database){
         this.generation = [];
+        this.inputs_count = inputs_count;
+        this.outputs_count = outputs_count;
+        this.neurals_count = neurals_count;
+        this.hidden_layers_count = hidden_layers_count;
         this.learning_database = learning_database;
         for (let index = 0; index < generation_size; index++) {
             this.generation.push(new NeuralNet(inputs_count, outputs_count, neurals_count, hidden_layers_count, inp_round_type, n_round_type, out_round_type));
         }
     }
-    bestNN(negativeSelection) {
-        console.log(negativeSelection);
-        
-        var the_smallest_error = this.calculateError(this.generation[0]);
+
+    bestNN(negativeSelection, learning_database = this.learning_database) {
+        var the_smallest_error = this.calculateError(this.generation[0], learning_database);
         var index_nn = 0;
-    
+        
         this.generation.forEach((element, index) => {
-            var error_nn = this.learning_database.inputs.reduce((totalError, inputs_, i) => {
-                const outputs_ = this.learning_database.outputs[i];
-                const result = element.calculate(inputs_);
-                return totalError + outputs_.reduce((sum, value, idx) => sum + Math.pow(value - result[idx], 2), 0);
-                //return totalError + outputs_.reduce((sum, value, idx) => sum + Math.abs(Math.pow(value - result[idx], 3)), 0);
-            }, 0) / this.learning_database.Size;
+            var error_nn = this.calculateError(element, learning_database);  // Используем calculateError для вычисления ошибки
     
             if ((negativeSelection && error_nn > the_smallest_error) || (!negativeSelection && error_nn < the_smallest_error)) {
                 the_smallest_error = error_nn;
                 index_nn = index;
             }
         });
-    
-        document.getElementById('error_nn').innerText = "Error: " + the_smallest_error;
+        
+        document.getElementById('error_nn').innerText = "Error: " + the_smallest_error +
+        "\nAverage error on one output: " + this.reverseErrorCalculation(the_smallest_error / this.outputs_count) + 
+        "\nFactual error on one output (considering multiplier): " + (this.reverseErrorCalculation(the_smallest_error / this.outputs_count) / learning_database.multiplier);
         return this.generation[index_nn];
     }
 
-    calculateError(nn) {
-        return this.learning_database.inputs.reduce((totalError, inputs_, i) => {
-            const outputs_ = this.learning_database.outputs[i];
+    calculateError(nn, learning_database = this.learning_database) {
+        return learning_database.inputs.reduce((totalError, inputs_, i) => {
+            const outputs_ = learning_database.outputs[i];
             const result = nn.calculate(inputs_);
-            return totalError + outputs_.reduce((sum, value, idx) => sum + Math.pow(value - result[idx], 2), 0);
-        }, 0) / this.learning_database.Size;
+            /*return totalError + outputs_.reduce((sum, value, idx) => {
+                let diff = value - result[idx];
+                return sum + Math.pow(diff, 2);
+            }, 0);*/
+            return totalError + outputs_.reduce((sum, value, idx) => {
+                let diff = Math.abs(value - result[idx]);
+                return (diff > 1) ? (sum + Math.pow(diff, 2)) : (sum + Math.sqrt(diff));
+            }, 0);
+        }, 0) / learning_database.Size;
     }
-    
-    passOneGeneration(mutationRate = 0.01, mutationScale = 0.1, negativeSelection) {
-        var best_nn = this.bestNN(negativeSelection);
+
+    reverseErrorCalculation(num) {
+        if (num > 1) {
+            return Math.sqrt(num);
+        } else {
+            return Math.pow(num, 2);
+        }
+    }    
+
+    passOneGeneration(mutationRate = 0.01, mutationScale = 0.1, negativeSelection = false, learning_database = this.learning_database) {
+        var best_nn = this.bestNN(negativeSelection, learning_database);
         this.generation.forEach((nn, index) => {
             nn.copy(best_nn, index !== 0, mutationRate, mutationScale);
         });
     }
 }
 
-function TextToInputs(text, neccessaryInputsCount) {
-    var numbers_list = text.split('').map(char => char.charCodeAt(0));
-    var result = [];
-    numbers_list.forEach(number => {
-        result.push(Math.floor(number / 100.0) * 0.1);
-        result.push((Math.floor(number / 10) % 10) * 0.1);
-        result.push(Math.floor(number % 10) * 0.1);
+function updateDatasetDropdown() {
+    let select = document.getElementById('dataset_chosen');
+    select.innerHTML = '';
+
+    all_LDBs.forEach((ds, index) => {
+        let option = document.createElement("option");
+        option.value = index;
+        option.textContent = "Dataset " + (index + 1);
+        select.appendChild(option);
     });
-    while (result.length < neccessaryInputsCount) {
-        result.push(0);
+}
+
+function Backpropagation(sensivity){
+    neural_net.LearnByLD(currentDataset(), sensivity);
+    document.getElementById('error_nn2').innerText = "Error: " + gen.calculateError(neural_net);
+}
+
+var inputs_count = 3;
+var outputs_count = 1;
+
+var learningDatabase = new LearningDatabase(inputs_count, outputs_count);
+var learningDatabase2 = new LearningDatabase(inputs_count, outputs_count);
+
+var gen = new Generation(inputs_count, outputs_count, 5, 3, RoundType.NO_ROUND, RoundType.TANH, RoundType.NO_ROUND, 20, learningDatabase);
+var neural_net = new NeuralNet(inputs_count, outputs_count, 5, 3, RoundType.NO_ROUND, RoundType.TANH, RoundType.NO_ROUND);
+
+var all_LDBs = [learningDatabase, learningDatabase2];
+
+document.addEventListener("DOMContentLoaded", function() {
+    updateDatasetDropdown();
+});
+
+function currentDataset() {
+    return all_LDBs[document.getElementById('dataset_chosen').value];
+}
+
+///////////////////////////////////////////////////
+
+// var max_value = 15+8+8+8;
+var max_value = 10*2*2*2;
+
+// Arythmetic progression
+for (let startNum = -15; startNum <= 15; startNum++) {
+    for (let step = -8; step <= 8; step++) {
+        switch (Math.abs(startNum) % 2) {
+            case 0:
+                learningDatabase.AddItem([startNum, startNum + step, startNum + step + step], [startNum + (step * 3)]);
+                break;
+            case 1:
+                learningDatabase2.AddItem([startNum, startNum + step, startNum + step + step], [startNum + (step * 3)]);
+                break;
+        }
     }
-    if(result.length > neccessaryInputsCount) throw new Error("Text was too long");
-    return result;
 }
 
-var learningDatabase = new LearningDatabase(51, 3);
-
-var en_words = [
-    "dog", "cat", "house", "car", "tree", "river", "mountain", "computer", "phone", "apple",
-    "banana", "table", "chair", "book", "window", "door", "flower", "sun", "moon", "star",
-    "ocean", "lake", "cloud", "rain", "snow", "sand", "beach", "island", "forest", "desert",
-    "bird", "fish", "tiger", "lion", "elephant", "giraffe", "monkey", "horse", "cow", "sheep",
-    "city", "village", "road", "bridge", "tower", "castle", "church", "school", "hospital",
-    "restaurant", "market", "shop", "bank", "hotel", "airport", "station", "bus", "train",
-    "airplane", "bicycle", "motorcycle", "boat", "ship", "submarine", "rocket", "astronaut",
-    "scientist", "engineer", "doctor", "nurse", "teacher", "student", "artist", "musician",
-    "writer", "actor", "director", "chef", "farmer", "driver", "pilot", "sailor", "soldier",
-    "king", "queen", "prince", "princess", "president", "minister", "lawyer", "judge",
-    "policeman", "firefighter", "detective", "guard", "thief", "criminal", "prison", "weapon",
-    "sword", "shield", "bow", "arrow", "gun", "bullet", "grenade", "bomb", "robot", "machine",
-    "factory", "warehouse", "laboratory", "museum", "library", "cinema", "theater", "stadium",
-    "park", "garden", "farm", "field", "mountain", "canyon", "volcano", "earthquake", "storm",
-    "hurricane", "tornado", "tsunami", "flood", "drought", "famine", "war", "battle", "victory",
-    "defeat", "hero", "villain", "monster", "ghost", "zombie", "vampire", "werewolf", "dragon",
-    "wizard", "witch", "spell", "curse", "magic", "potion", "treasure", "gold", "diamond",
-    "emerald", "ruby", "sapphire", "crystal", "crown", "throne", "kingdom", "empire", "nation",
-    "flag", "anthem", "constitution", "law", "justice", "freedom", "rights", "duty", "honor",
-    "truth", "lie", "fear", "courage", "love", "hate", "happiness", "sadness", "anger",
-    "surprise", "disgust", "envy", "pride", "shame", "guilt", "regret", "forgiveness",
-    "revenge", "peace", "war", "strategy", "tactics", "history", "future", "science",
-    "technology", "physics", "chemistry", "biology", "mathematics", "geometry", "algebra",
-    "calculus", "statistics", "computer", "software", "hardware", "internet", "network",
-    "database", "server", "client", "protocol", "encryption", "hacking", "virus", "security", "word"
-];
-
-var cz_words = [
-    "pes", "kočka", "dům", "auto", "strom", "řeka", "hora", "počítač", "telefon", "jablko",
-    "banán", "stůl", "židle", "kniha", "okno", "dveře", "květina", "slunce", "měsíc", "hvězda",
-    "oceán", "jezero", "mrak", "déšť", "sníh", "písek", "pláž", "ostrov", "les", "poušť",
-    "pták", "ryba", "tygr", "lev", "slon", "žirafa", "opice", "kůň", "kráva", "ovce",
-    "město", "vesnice", "silnice", "most", "věž", "zámek", "kostel", "škola", "nemocnice",
-    "restaurace", "trh", "obchod", "banka", "hotel", "letiště", "stanice", "autobus", "vlak",
-    "letadlo", "kolo", "motocykl", "loď", "loďka", "ponorka", "raketa", "astronaut", "vědec",
-    "inženýr", "doktor", "sestřička", "učitel", "student", "umělec", "hudebník", "spisovatel",
-    "herec", "režisér", "šéfkuchař", "farmář", "řidič", "pilot", "námořník", "voják",
-    "král", "královna", "princ", "princezna", "prezident", "ministr", "advokát", "soudce",
-    "policista", "hasič", "detektiv", "strážce", "zloděj", "zločinec", "vězení", "zbraň",
-    "meč", "štít", "luk", "šíp", "puška", "kulka", "granát", "bomba", "robot", "stroj",
-    "továrna", "sklad", "laboratoř", "muzeum", "knihovna", "kino", "divadlo", "stadion",
-    "park", "zahrada", "farma", "pole", "hora", "kaňon", "vulkán", "zemětřesení", "bouře",
-    "hurikán", "tornádo", "tsunami", "povodeň", "sucho", "hladomor", "válka", "bitva", "vítězství",
-    "porážka", "hrdina", "padouch", "monstrum", "duch", "zombi", "upír", "vlkodlak", "drak",
-    "čaroděj", "čarodějnice", "kouzlo", "kletba", "magie", "lektvar", "poklad", "zlato", "diamant",
-    "smaragd", "rubín", "safír", "krystal", "koruna", "trůn", "království", "říše", "národ",
-    "vlajka", "hymna", "ústava", "zákon", "spravedlnost", "svoboda", "práva", "povinnost", "ctnost",
-    "pravda", "lež", "strach", "odvaha", "láska", "nenávist", "štěstí", "smutek", "hněv",
-    "překvapení", "zhnusení", "závist", "pýcha", "hanba", "vina", "lítost", "odpuštění",
-    "pomsta", "mír", "válka", "strategie", "taktika", "historie", "budoucnost", "věda",
-    "technologie", "fyzika", "chemie", "biologie", "matematika", "geometrie", "algebra",
-    "kalkulus", "statistika", "počítač", "software", "hardware", "internet", "síť",
-    "databáze", "server", "klient", "protokol", "šifrování", "hackování", "virus", "bezpečnost", "slovo"
-];
-
-function Test(word) {
-    var res = nn1.calculate(TextToInputs(word, 51));
-    if(en_words.includes(word)) console.log("Word is in EN database.");
-    if(cz_words.includes(word)) console.log("Word is in CZ database.");
-    console.log(res[0], res[1], res[2]);
-    
-    if(res[0] > res[1] && res[0]>res[2]) return "EN word";
-    else if(res[1] > res[0] && res[1]>res[2]) return "CZ word";
-    else return "Word is in both languages";
-}
-
-for (let i = 0; i < en_words.length; i++) {
-    if(cz_words.includes(en_words[i])){
-        learningDatabase.AddItem(TextToInputs(en_words[i], 51), [-1, -1, 1]);
+// Geometric progression
+for (let startNum = -10; startNum <= 10; startNum++) {
+    for (let step = -2; step <= 2; step++) {
+        switch (Math.abs(startNum) % 2) {
+            case 0:
+                learningDatabase.AddItem([startNum, startNum * step, startNum * step * step], [startNum * step * step * step]);
+                break;
+            case 1:
+                learningDatabase2.AddItem([startNum, startNum * step, startNum * step * step], [startNum * step * step * step]);
+                break;
+        }
     }
-    learningDatabase.AddItem(TextToInputs(en_words[i], 51), [1, -1, -1]);
-}
-for (let i = 0; i < cz_words.length; i++) {
-    learningDatabase.AddItem(TextToInputs(cz_words[i], 51), [-1, 1, -1]);
 }
 
-var gen = new Generation(51, 3, 40, 2, RoundType.NO_ROUND, RoundType.TANH, RoundType.NO_ROUND, 50, learningDatabase);
+learningDatabase.multiplyAll(1.0 / max_value);
+learningDatabase2.multiplyAll(1.0 / max_value);
 
-console.log(learningDatabase);
-console.log("Learning DB size: " + learningDatabase.Size);
+function Test(numbers) {
+    return "Next number: " + Math.round(neural_net.calculate([numbers[0] / max_value,numbers[1] / max_value,numbers[2] / max_value])[0] * max_value) + ", step: " + Math.round(neural_net.calculate([numbers[0] / max_value,numbers[1] / max_value,numbers[2] / max_value])[1] * max_value) + 
+    "\nNext number: " + Math.round(gen.generation[0].calculate([numbers[0] / max_value,numbers[1] / max_value,numbers[2] / max_value])[0] * max_value) + ", step: " + Math.round(gen.generation[0].calculate([numbers[0] / max_value,numbers[1] / max_value,numbers[2] / max_value])[1] * max_value);
+}
 
-var nn1 = gen.generation[0];
+/*
+console.log(Test([10, 3, -4]));
+console.log(Test([5, -2, -9]));
+console.log(Test([-20, 0, 20]));
+console.log(Test([-12, 0, 12]));
+*/
+
+all_LDBs.forEach((value, index) => {
+    console.log("Database " + (index + 1) + " size: " + value.Size);
+});

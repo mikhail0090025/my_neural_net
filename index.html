@@ -9,7 +9,7 @@
 </head>
 <body>
     <label for="generations_count">Generations count:</label>
-    <input type="number" name="generations_count" id="generations_count" value="100"> <br>
+    <input type="number" name="generations_count" id="generations_count" value="10000"> <br>
     
     <button id="button_go">Start</button>
     <button id="button_go_one">Go one</button>
@@ -34,6 +34,44 @@
     <label for="negSelection">Negative selection: </label>
     <input type="checkbox" id="negSelection">
 
+    <label for="dataset_chosen">Chosen dataset: </label>
+    <select name="dataset_chosen" id="dataset_chosen">
+    </select>
+
+    <h2>Backpropagation</h2>
+    <p id="error_nn2"></p>
+    <button id="backpropagation_toggle">Start</button>
+    <button id="backpropagation_button" onclick="Backpropagation(sensitivity);">Go one</button>
+    <p id="sensitivityLabel"></p>
+    <button id="sensitivityPlusBtn">*10</button>
+    <button id="sensitivityBtn1">*-1</button>
+    <button id="sensitivityMinusBtn">/10</button><br>
+    
+    <script>
+        var backpropagating = false; // Флаг для отслеживания обучения
+    
+        document.getElementById('backpropagation_toggle').onclick = () => {
+            backpropagating = !backpropagating;
+            if (backpropagating) {
+                document.getElementById('backpropagation_toggle').innerText = "Pause";
+                startBackpropagation();
+            } else {
+                document.getElementById('backpropagation_toggle').innerText = "Start";
+            }
+        };
+    
+        function startBackpropagation() {
+            if (!backpropagating) {
+                document.getElementById('backpropagation_toggle').innerText = "Start";
+                return;
+            }
+    
+            Backpropagation(sensitivity);
+    
+            setTimeout(startBackpropagation, 10); // Небольшая задержка для UI
+        }
+    </script>
+    
     <script>
         var mutationRate = 0.01;
         var mutationScale = 0.1;
@@ -41,6 +79,7 @@
         var currentGeneration = 0;
         var totalGenerations = 100; // Default
         var generationsPassed = 0;
+        var sensitivity = 0.1;
 
         RefreshUI();
 
@@ -48,6 +87,7 @@
             document.getElementById('mutationRate').innerText = "Mutation Rate: " + mutationRate;
             document.getElementById('mutationScale').innerText = "Mutation Scale: " + mutationScale;
             document.getElementById('generations_passed').innerText = "Generations passed: " + generationsPassed;
+            document.getElementById('sensitivityLabel').innerText = "Sensitivity: " + sensitivity;
         }
 
         document.getElementById('mutationRate_plus').onclick = () => { mutationRate *= 10; RefreshUI(); }
@@ -58,6 +98,10 @@
         document.getElementById('mutationRate_minus2').onclick = () => { mutationRate /= 1.1; RefreshUI(); }
         document.getElementById('mutationScale_plus2').onclick = () => { mutationScale *= 1.1; RefreshUI(); }
         document.getElementById('mutationScale_minus2').onclick = () => { mutationScale /= 1.1; RefreshUI(); }
+        document.getElementById('sensitivityPlusBtn').onclick = () => { sensitivity *= 10; RefreshUI(); }
+        document.getElementById('sensitivityMinusBtn').onclick = () => { sensitivity /= 10; RefreshUI(); }
+        document.getElementById('sensitivityBtn1').onclick = () => { sensitivity *= -1; RefreshUI(); }
+
 
         document.getElementById('button_go').onclick = () => {
             learning = !learning;
@@ -71,7 +115,7 @@
         };
 
         document.getElementById('button_go_one').onclick = () => {
-            gen.passOneGeneration(mutationRate, mutationScale, document.getElementById('negSelection').checked);
+            gen.passOneGeneration(mutationRate, mutationScale, document.getElementById('negSelection').checked, currentDataset());
             generationsPassed++;
             RefreshUI();
         };
@@ -83,7 +127,7 @@
                 return;
             }
 
-            gen.passOneGeneration(mutationRate, mutationScale, document.getElementById('negSelection').checked);
+            gen.passOneGeneration(mutationRate, mutationScale, document.getElementById('negSelection').checked, currentDataset());
             document.getElementsByTagName('progress')[0].value = currentGeneration;
             document.getElementsByTagName('progress')[0].max = totalGenerations;
 
