@@ -31,8 +31,11 @@
     <button id="mutationScale_minus2">/1.1</button>
     <button id="mutationScale_minus">/10</button><br>
 
-    <label for="negSelection">Negative selection: </label>
     <input type="checkbox" id="negSelection">
+    <label for="negSelection">Negative selection</label><br>
+
+    <input type="checkbox" id="bigGenerations">
+    <label for="bigGenerations">Big generations (set this if one generation takes much time)</label><br>
 
     <label for="dataset_chosen">Chosen dataset: </label>
     <select name="dataset_chosen" id="dataset_chosen">
@@ -46,9 +49,14 @@
     <button id="sensitivityPlusBtn">*10</button>
     <button id="sensitivityBtn1">*-1</button>
     <button id="sensitivityMinusBtn">/10</button><br>
+    <button id="Reset_backpropogated_net_btn">Reset neural net</button>
     
     <script>
         var backpropagating = false; // Флаг для отслеживания обучения
+
+        document.getElementById('Reset_backpropogated_net_btn').onclick = () => {
+            neural_net = new NeuralNet(inputs_count, outputs_count, 5, 3, RoundType.NO_ROUND, RoundType.TANH, RoundType.NO_ROUND);
+        };
     
         document.getElementById('backpropagation_toggle').onclick = () => {
             backpropagating = !backpropagating;
@@ -120,14 +128,18 @@
             RefreshUI();
         };
 
-        function startLearning() {
+        async function startLearning() {
             if (!learning || currentGeneration >= totalGenerations) {
                 document.getElementById('button_go').innerText = "Start";
                 currentGeneration = 0;
                 return;
             }
 
-            gen.passOneGeneration(mutationRate, mutationScale, document.getElementById('negSelection').checked, currentDataset());
+            
+            await gen.passOneGeneration(mutationRate, mutationScale, document.getElementById('negSelection').checked, currentDataset());
+            
+            if(document.getElementById('bigGenerations').checked) console.log("One generation passed, " + (currentGeneration + 1));
+
             document.getElementsByTagName('progress')[0].value = currentGeneration;
             document.getElementsByTagName('progress')[0].max = totalGenerations;
 
@@ -135,8 +147,11 @@
             generationsPassed++;
             RefreshUI();
 
-            setTimeout(startLearning, 10); // Delay to prevent freezing UI
+            if (learning) {
+                startLearning(); // Запускаем новую итерацию только после завершения предыдущей
+            }
         }
+
     </script>
 </body>
 </html>

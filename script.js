@@ -80,10 +80,14 @@ class NeuralNet {
         // Generate random coefficients between layers
         this.generateCoefficients(inputs_count, neurals_count, hidden_layers_count, outputs_count);
 
-        // Save round types for the network
+        // Save variables for the network
         this.inputs_round_type = inp_round_type;
         this.neural_round_type = n_round_type;
         this.outputs_round_type = out_round_type;
+        this.inputs_count = inputs_count;
+        this.outputs_count = outputs_count;
+        this.neurals_count = neurals_count;
+        this.hidden_layers_count = hidden_layers_count;
     }
 
     // Function to generate random coefficients between layers
@@ -363,19 +367,10 @@ function updateDatasetDropdown() {
 
 function Backpropagation(sensivity){
     neural_net.LearnByLD(currentDataset(), sensivity);
-    document.getElementById('error_nn2').innerText = "Error: " + gen.calculateError(neural_net);
+    document.getElementById('error_nn2').innerText = "Error: " + gen.calculateError(neural_net) + 
+    "\nError on one output: " + gen.reverseErrorCalculation(gen.calculateError(neural_net) / neural_net.outputs_count) + 
+    "\nFactual error on one output: " + (gen.reverseErrorCalculation(gen.calculateError(neural_net) / neural_net.outputs_count) / currentDataset().multiplier);
 }
-
-var inputs_count = 3;
-var outputs_count = 1;
-
-var learningDatabase = new LearningDatabase(inputs_count, outputs_count);
-var learningDatabase2 = new LearningDatabase(inputs_count, outputs_count);
-
-var gen = new Generation(inputs_count, outputs_count, 5, 3, RoundType.NO_ROUND, RoundType.TANH, RoundType.NO_ROUND, 20, learningDatabase);
-var neural_net = new NeuralNet(inputs_count, outputs_count, 5, 3, RoundType.NO_ROUND, RoundType.TANH, RoundType.NO_ROUND);
-
-var all_LDBs = [learningDatabase, learningDatabase2];
 
 document.addEventListener("DOMContentLoaded", function() {
     updateDatasetDropdown();
@@ -385,54 +380,87 @@ function currentDataset() {
     return all_LDBs[document.getElementById('dataset_chosen').value];
 }
 
+function imageToArray(imgSrc, width = 150, height = 150, grayscale = true) {
+    return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.crossOrigin = "Anonymous"; // Чтобы можно было загружать изображения с других источников
+        img.src = imgSrc;
+
+        img.onload = () => {
+            const canvas = document.createElement("canvas");
+            const ctx = canvas.getContext("2d");
+
+            canvas.width = width;
+            canvas.height = height;
+            ctx.drawImage(img, 0, 0, width, height);
+
+            const imageData = ctx.getImageData(0, 0, width, height).data;
+            let pixelArray = [];
+
+            if (grayscale) {
+                // Преобразуем в черно-белый (одно значение на пиксель)
+                for (let i = 0; i < imageData.length; i += 4) {
+                    let gray = (imageData[i] + imageData[i + 1] + imageData[i + 2]) / 3;
+                    pixelArray.push(gray / 255); // Нормализация [0, 1]
+                }
+            } else {
+                // RGB (три значения на пиксель)
+                for (let i = 0; i < imageData.length; i += 4) {
+                    pixelArray.push(imageData[i] / 255, imageData[i + 1] / 255, imageData[i + 2] / 255);
+                }
+            }
+
+            resolve(pixelArray);
+        };
+
+        img.onerror = () => reject("Ошибка загрузки изображения");
+    });
+}
+
+/////////////////////////////////////////////////////
+
+var inputs_count = 50*50;
+var outputs_count = 2;
+
+var learningDatabase = new LearningDatabase(inputs_count, outputs_count);
+
+var gen = new Generation(inputs_count, outputs_count, 500, 2, RoundType.NO_ROUND, RoundType.TANH, RoundType.NO_ROUND, 20, learningDatabase);
+var neural_net = new NeuralNet(inputs_count, outputs_count, 500, 2, RoundType.NO_ROUND, RoundType.TANH, RoundType.NO_ROUND);
+
+var all_LDBs = [learningDatabase];
+
 ///////////////////////////////////////////////////
 
-// var max_value = 15+8+8+8;
-var max_value = 10*2*2*2;
+var dogs = [
+    "/dogs/images/Images/n02085620-Chihuahua/n02085620_7.jpg",
+    "/dogs/images/Images/n02085620-Chihuahua/n02085620_199.jpg",
+    "/dogs/images/Images/n02085620-Chihuahua/n02085620_242.jpg",
+    "/dogs/images/Images/n02085620-Chihuahua/n02085620_275.jpg",
+    "/dogs/images/Images/n02085620-Chihuahua/n02085620_326.jpg"
+];
+var cats = [
+    "/cats/CAT_00/00000001_000.jpg",
+    "/cats/CAT_00/00000001_005.jpg",
+    "/cats/CAT_00/00000001_008.jpg",
+    "/cats/CAT_00/00000001_011.jpg",
+    "/cats/CAT_00/00000001_012.jpg"
+];
 
-// Arythmetic progression
-for (let startNum = -15; startNum <= 15; startNum++) {
-    for (let step = -8; step <= 8; step++) {
-        switch (Math.abs(startNum) % 2) {
-            case 0:
-                learningDatabase.AddItem([startNum, startNum + step, startNum + step + step], [startNum + (step * 3)]);
-                break;
-            case 1:
-                learningDatabase2.AddItem([startNum, startNum + step, startNum + step + step], [startNum + (step * 3)]);
-                break;
-        }
-    }
-}
-
-// Geometric progression
-for (let startNum = -10; startNum <= 10; startNum++) {
-    for (let step = -2; step <= 2; step++) {
-        switch (Math.abs(startNum) % 2) {
-            case 0:
-                learningDatabase.AddItem([startNum, startNum * step, startNum * step * step], [startNum * step * step * step]);
-                break;
-            case 1:
-                learningDatabase2.AddItem([startNum, startNum * step, startNum * step * step], [startNum * step * step * step]);
-                break;
-        }
-    }
-}
-
-learningDatabase.multiplyAll(1.0 / max_value);
-learningDatabase2.multiplyAll(1.0 / max_value);
-
-function Test(numbers) {
-    return "Next number: " + Math.round(neural_net.calculate([numbers[0] / max_value,numbers[1] / max_value,numbers[2] / max_value])[0] * max_value) + ", step: " + Math.round(neural_net.calculate([numbers[0] / max_value,numbers[1] / max_value,numbers[2] / max_value])[1] * max_value) + 
-    "\nNext number: " + Math.round(gen.generation[0].calculate([numbers[0] / max_value,numbers[1] / max_value,numbers[2] / max_value])[0] * max_value) + ", step: " + Math.round(gen.generation[0].calculate([numbers[0] / max_value,numbers[1] / max_value,numbers[2] / max_value])[1] * max_value);
-}
-
-/*
-console.log(Test([10, 3, -4]));
-console.log(Test([5, -2, -9]));
-console.log(Test([-20, 0, 20]));
-console.log(Test([-12, 0, 12]));
-*/
-
-all_LDBs.forEach((value, index) => {
-    console.log("Database " + (index + 1) + " size: " + value.Size);
+dogs.forEach((url, index) => {
+    imageToArray(url, 50, 50, true).then(pixelArray => {
+        learningDatabase.AddItem(pixelArray, [1, 0]);
+    }).catch(error => console.error(error));
 });
+cats.forEach((url, index) => {
+    imageToArray(url, 50, 50, true).then(pixelArray => {
+        learningDatabase.AddItem(pixelArray, [0, 1]);
+    }).catch(error => console.error(error));
+});
+
+function Test(url) {
+    imageToArray(url, 50, 50, true).then(pixelArray => {
+        var answer1 = gen.generation[0].calculate(pixelArray);
+        console.log(answer1[0], answer1[1]);
+        console.log(answer1[0] > answer1[1] ? "Dog" : "Cat");
+    }).catch(error => console.error(error));
+}
