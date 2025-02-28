@@ -1,8 +1,1 @@
-dogs/images/Images/*
-!dogs/images/Images/n02085620-Chihuahua/
-!dogs/images/Images/n02085620-Chihuahua/**
-
-cats/*
-!cats/CAT_00/
-!cats/CAT_00/**
-!cats/CAT_00/*
+archive/
