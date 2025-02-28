@@ -308,6 +308,8 @@ class Generation{
         var index_nn = 0;
         
         this.generation.forEach((element, index) => {
+            if(document.getElementById('ShowEachIter').checked) console.log("NN "+ index + " of " + this.generation.length);
+            
             var error_nn = this.calculateError(element, learning_database);  // Используем calculateError для вычисления ошибки
     
             if ((negativeSelection && error_nn > the_smallest_error) || (!negativeSelection && error_nn < the_smallest_error)) {
@@ -417,50 +419,77 @@ function imageToArray(imgSrc, width = 150, height = 150, grayscale = true) {
     });
 }
 
+function Hardness() {
+    var res = 0;
+    res += gen.inputs_count * gen.neurals_count;
+    res += gen.outputs_count * gen.neurals_count;
+    res += gen.neurals_count * gen.neurals_count * (gen.hidden_layers_count - 1);
+    console.log("One NN hardness: " + res);
+    res *= learningDatabase.Size;
+    console.log("One generation hardness: " + res);
+}
+
+function SaveToJSON() {
+    var object_ = {
+        'generation': gen,
+        'neural_net': neural_net,
+        'all_LDBs': all_LDBs
+    };
+    return JSON.stringify(object_);
+}
+
+function DBsData(){
+    all_LDBs.forEach((db, index) => {
+        console.log("Learning dataset " + (index + 1) + ": " + db.Size + " items.");
+    });
+}
+
 /////////////////////////////////////////////////////
 
-var inputs_count = 50*50;
+var inputs_count = 28*28;
 var outputs_count = 2;
 
 var learningDatabase = new LearningDatabase(inputs_count, outputs_count);
+var learningDatabase2 = new LearningDatabase(inputs_count, outputs_count);
 
-var gen = new Generation(inputs_count, outputs_count, 500, 2, RoundType.NO_ROUND, RoundType.TANH, RoundType.NO_ROUND, 20, learningDatabase);
-var neural_net = new NeuralNet(inputs_count, outputs_count, 500, 2, RoundType.NO_ROUND, RoundType.TANH, RoundType.NO_ROUND);
+var gen = new Generation(inputs_count, outputs_count, 300, 2, RoundType.NO_ROUND, RoundType.TANH, RoundType.NO_ROUND, 20, learningDatabase);
+var neural_net = new NeuralNet(inputs_count, outputs_count, 300, 2, RoundType.NO_ROUND, RoundType.TANH, RoundType.NO_ROUND);
 
-var all_LDBs = [learningDatabase];
+var all_LDBs = [learningDatabase, learningDatabase2];
 
 ///////////////////////////////////////////////////
 
-var dogs = [
-    "/dogs/images/Images/n02085620-Chihuahua/n02085620_7.jpg",
-    "/dogs/images/Images/n02085620-Chihuahua/n02085620_199.jpg",
-    "/dogs/images/Images/n02085620-Chihuahua/n02085620_242.jpg",
-    "/dogs/images/Images/n02085620-Chihuahua/n02085620_275.jpg",
-    "/dogs/images/Images/n02085620-Chihuahua/n02085620_326.jpg"
-];
-var cats = [
-    "/cats/CAT_00/00000001_000.jpg",
-    "/cats/CAT_00/00000001_005.jpg",
-    "/cats/CAT_00/00000001_008.jpg",
-    "/cats/CAT_00/00000001_011.jpg",
-    "/cats/CAT_00/00000001_012.jpg"
-];
+var zeros = [];
+var ones = [];
 
-dogs.forEach((url, index) => {
-    imageToArray(url, 50, 50, true).then(pixelArray => {
-        learningDatabase.AddItem(pixelArray, [1, 0]);
-    }).catch(error => console.error(error));
+AllImages("/archive/numbers/mnist_png/Hnd/Sample0/").then(result => {
+    zeros = result;
+    zeros.forEach((url, index) => {
+        if(index > 200) return;
+        imageToArray(url, 28, 28, true).then(pixelArray => {
+            if(index % 2 == 0) learningDatabase.AddItem(pixelArray, [1, 0]);
+            else learningDatabase2.AddItem(pixelArray, [1, 0]);
+            console.log("zero " + index + " / " + zeros.length);
+        }).catch(error => console.error(error));
+    });    
 });
-cats.forEach((url, index) => {
-    imageToArray(url, 50, 50, true).then(pixelArray => {
-        learningDatabase.AddItem(pixelArray, [0, 1]);
-    }).catch(error => console.error(error));
+
+AllImages("/archive/numbers/mnist_png/Hnd/Sample1/").then(result => {
+    ones = result;
+    ones.forEach((url, index) => {
+        if(index > 200) return;
+        imageToArray(url, 28, 28, true).then(pixelArray => {
+            if(index % 2 == 0) learningDatabase.AddItem(pixelArray, [0, 1]);
+            else learningDatabase2.AddItem(pixelArray, [0, 1]);
+            console.log("one " + index + " / " + ones.length);
+        }).catch(error => console.error(error));
+    });
 });
 
 function Test(url) {
-    imageToArray(url, 50, 50, true).then(pixelArray => {
+    imageToArray(url, 28, 28, true).then(pixelArray => {
         var answer1 = gen.generation[0].calculate(pixelArray);
         console.log(answer1[0], answer1[1]);
-        console.log(answer1[0] > answer1[1] ? "Dog" : "Cat");
+        console.log(answer1[0] > answer1[1] ? "0" : "1");
     }).catch(error => console.error(error));
 }
