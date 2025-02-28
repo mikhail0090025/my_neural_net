@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Neural Network Learning</title>
     <link rel="stylesheet" href="style.css">
+    <script src="usefulFunctions.js"></script>
     <script src="script.js"></script>
 </head>
 <body>
@@ -34,8 +35,11 @@
     <input type="checkbox" id="negSelection">
     <label for="negSelection">Negative selection</label><br>
 
-    <input type="checkbox" id="bigGenerations">
+    <input type="checkbox" id="bigGenerations" checked>
     <label for="bigGenerations">Big generations (set this if one generation takes much time)</label><br>
+
+    <input type="checkbox" id="ShowEachIter" checked>
+    <label for="ShowEachIter">Show each iteration in console</label><br>
 
     <label for="dataset_chosen">Chosen dataset: </label>
     <select name="dataset_chosen" id="dataset_chosen">
