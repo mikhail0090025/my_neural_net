@@ -438,17 +438,24 @@ function SaveToJSON() {
     return JSON.stringify(object_);
 }
 
+function DBsData(){
+    all_LDBs.forEach((db, index) => {
+        console.log("Learning dataset " + (index + 1) + ": " + db.Size + " items.");
+    });
+}
+
 /////////////////////////////////////////////////////
 
 var inputs_count = 28*28;
 var outputs_count = 2;
 
 var learningDatabase = new LearningDatabase(inputs_count, outputs_count);
+var learningDatabase2 = new LearningDatabase(inputs_count, outputs_count);
 
 var gen = new Generation(inputs_count, outputs_count, 300, 2, RoundType.NO_ROUND, RoundType.TANH, RoundType.NO_ROUND, 20, learningDatabase);
 var neural_net = new NeuralNet(inputs_count, outputs_count, 300, 2, RoundType.NO_ROUND, RoundType.TANH, RoundType.NO_ROUND);
 
-var all_LDBs = [learningDatabase];
+var all_LDBs = [learningDatabase, learningDatabase2];
 
 ///////////////////////////////////////////////////
 
@@ -458,9 +465,10 @@ var ones = [];
 AllImages("/archive/numbers/mnist_png/Hnd/Sample0/").then(result => {
     zeros = result;
     zeros.forEach((url, index) => {
-        if(index > 500) return;
+        if(index > 200) return;
         imageToArray(url, 28, 28, true).then(pixelArray => {
-            learningDatabase.AddItem(pixelArray, [1, 0]);
+            if(index % 2 == 0) learningDatabase.AddItem(pixelArray, [1, 0]);
+            else learningDatabase2.AddItem(pixelArray, [1, 0]);
             console.log("zero " + index + " / " + zeros.length);
         }).catch(error => console.error(error));
     });    
@@ -469,9 +477,10 @@ AllImages("/archive/numbers/mnist_png/Hnd/Sample0/").then(result => {
 AllImages("/archive/numbers/mnist_png/Hnd/Sample1/").then(result => {
     ones = result;
     ones.forEach((url, index) => {
-        if(index > 500) return;
+        if(index > 200) return;
         imageToArray(url, 28, 28, true).then(pixelArray => {
-            learningDatabase.AddItem(pixelArray, [0, 1]);
+            if(index % 2 == 0) learningDatabase.AddItem(pixelArray, [0, 1]);
+            else learningDatabase2.AddItem(pixelArray, [0, 1]);
             console.log("one " + index + " / " + ones.length);
         }).catch(error => console.error(error));
     });
@@ -481,6 +490,6 @@ function Test(url) {
     imageToArray(url, 28, 28, true).then(pixelArray => {
         var answer1 = gen.generation[0].calculate(pixelArray);
         console.log(answer1[0], answer1[1]);
-        console.log(answer1[0] > answer1[1] ? "Dog" : "Cat");
+        console.log(answer1[0] > answer1[1] ? "0" : "1");
     }).catch(error => console.error(error));
 }

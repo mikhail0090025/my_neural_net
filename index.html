@@ -132,15 +132,14 @@
             RefreshUI();
         };
 
-        async function startLearning() {
+        function startLearning() {
             if (!learning || currentGeneration >= totalGenerations) {
                 document.getElementById('button_go').innerText = "Start";
                 currentGeneration = 0;
                 return;
             }
 
-            
-            await gen.passOneGeneration(mutationRate, mutationScale, document.getElementById('negSelection').checked, currentDataset());
+            gen.passOneGeneration(mutationRate, mutationScale, document.getElementById('negSelection').checked, currentDataset());
             
             if(document.getElementById('bigGenerations').checked) console.log("One generation passed, " + (currentGeneration + 1));
 
