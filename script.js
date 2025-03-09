@@ -110,7 +110,7 @@ class NeuralNet {
         for (let i = 0; i < rows; i++) {
             const row = [];
             for (let j = 0; j < cols; j++) {
-                row.push(Math.random()); // Random number between 0 and 1
+                row.push((Math.random() * 2) - 1); // Random number between 0 and 1
             }
             matrix.push(row);
         }
@@ -357,21 +357,27 @@ class Generation{
 
 function updateDatasetDropdown() {
     let select = document.getElementById('dataset_chosen');
-    select.innerHTML = '';
+    if(select) {
+        select.innerHTML = '';
 
-    all_LDBs.forEach((ds, index) => {
-        let option = document.createElement("option");
-        option.value = index;
-        option.textContent = "Dataset " + (index + 1);
-        select.appendChild(option);
-    });
+        all_LDBs.forEach((ds, index) => {
+            let option = document.createElement("option");
+            option.value = index;
+            option.textContent = "Dataset " + (index + 1);
+            select.appendChild(option);
+        });
+    }
 }
 
 function Backpropagation(sensivity){
-    neural_net.LearnByLD(currentDataset(), sensivity);
+    var currentDataset_ = currentDataset();
+
+    console.log(sensivity, currentDataset_);
+    
+    neural_net.LearnByLD(currentDataset_, sensivity);
     document.getElementById('error_nn2').innerText = "Error: " + gen.calculateError(neural_net) + 
     "\nError on one output: " + gen.reverseErrorCalculation(gen.calculateError(neural_net) / neural_net.outputs_count) + 
-    "\nFactual error on one output: " + (gen.reverseErrorCalculation(gen.calculateError(neural_net) / neural_net.outputs_count) / currentDataset().multiplier);
+    "\nFactual error on one output: " + (gen.reverseErrorCalculation(gen.calculateError(neural_net) / neural_net.outputs_count) / currentDataset_.multiplier);
 }
 
 document.addEventListener("DOMContentLoaded", function() {
@@ -443,7 +449,7 @@ function DBsData(){
         console.log("Learning dataset " + (index + 1) + ": " + db.Size + " items.");
     });
 }
-
+/*
 /////////////////////////////////////////////////////
 
 var inputs_count = 28*28;
@@ -493,3 +499,5 @@ function Test(url) {
         console.log(answer1[0] > answer1[1] ? "0" : "1");
     }).catch(error => console.error(error));
 }
+
+*/
