@@ -2,14 +2,6 @@ function TextToInputs(text, neccessaryInputsCount) {
     text = text.toLowerCase();
     var result = [];
 
-    /*var numbers_list = text.split('').map(char => char.charCodeAt(0));
-    numbers_list.forEach(number => {
-        //result.push(Math.floor(number / 100.0) * 0.1);
-        //result.push((Math.floor(number / 10) % 10) * 0.1);
-        //result.push(Math.floor(number % 10) * 0.1);
-        result.push(number / 255.0);
-    });*/
-
     var letters = "qweéěrřtťzžuúůiíoópaásšdďfghjklyýxcčvbnňm0123456789";
     text.split('').forEach(char => {
         let index = letters.indexOf(char);

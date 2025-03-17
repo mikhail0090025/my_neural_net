@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Neural nets manager</title>
+  <link rel="stylesheet" href="../style.css">
+  <script src="../neuralNet.js"></script>
+  <script src="../usefulFunctions.js"></script>
+</head>
+<body>
+    <canvas width="640" height="640" id="main_canvas"></canvas>
+    <button onclick="game.Frame();">Frame</button>
+    <button onclick="game.passOneGeneration();">Pass one generation</button>
+    <button id="startTraining">Start Training</button>
+    <button id="stopTraining">Stop Training</button>
+    <button id="timeForGen">Time for one generation</button>
+
+    <p id="Game_info"></p>
+
+    <div>
+        <h3>Mutation Rate: <span id="mutationRateDisplay">0.1</span></h3>
+        <button onclick="adjustMutationRate(0.1)">×10</button>
+        <button onclick="adjustMutationRate(0.1, true)">÷10</button>
+    </div>
+
+    <div>
+        <h3>Mutation Scale: <span id="mutationScaleDisplay">0.1</span></h3>
+        <button onclick="adjustMutationScale(0.1)">×10</button>
+        <button onclick="adjustMutationScale(0.1, true)">÷10</button>
+    </div>
+
+    <script src="game.js"></script>
+    <script>
+        function updateUI() {
+            document.getElementById("mutationRateDisplay").textContent = mutationRate.toFixed(5);
+            document.getElementById("mutationScaleDisplay").textContent = mutationScale.toFixed(5);
+        }
+
+        function adjustMutationRate(factor, divide = false) {
+            mutationRate = divide ? mutationRate / 10 : mutationRate * 10;
+            updateUI();
+        }
+
+        function adjustMutationScale(factor, divide = false) {
+            mutationScale = divide ? mutationScale / 10 : mutationScale * 10;
+            updateUI();
+        }
+
+        class TrainingManager {
+            constructor(game) {
+                this.game = game;
+                this.isTraining = false;
+            }
+
+            async startTraining() {
+                if (this.isTraining) return;
+                this.isTraining = true;
+                console.log("Training started...");
+
+                while (this.isTraining) {
+                    this.game.passOneGeneration();
+                    await this.sleep(10);
+                }
+            }
+
+            stopTraining() {
+                this.isTraining = false;
+                console.log("Training stopped.");
+            }
+
+            sleep(ms) {
+                return new Promise(resolve => setTimeout(resolve, ms));
+            }
+        }
+
+        const trainingManager = new TrainingManager(game);
+
+        document.getElementById("startTraining").addEventListener("click", () => trainingManager.startTraining());
+        document.getElementById("stopTraining").addEventListener("click", () => trainingManager.stopTraining());
+
+        document.getElementById("timeForGen").addEventListener("click", () => {
+            var time_ = measureExecutionTime(() => this.game.passOneGeneration());
+            if(time_ < 1000) alert("Generation has taken " + time_ + " milliseconds.");
+            else alert("Generation has taken " + (time_ / 1000.0) + " seconds.");
+        });
+
+        updateUI();
+    </script>
+</body>
+</html>
