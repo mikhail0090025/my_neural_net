@@ -1,503 +1,67 @@
-const RoundType = {
-    NO_ROUND: 1,
-    TANH: 2,
-    TO_INT: 3,
-    ZERO_ONE: 4,
-    RELU: 5,
-};
+function TextToInputs(text, neccessaryInputsCount) {
+    text = text.toLowerCase();
+    var result = [];
 
-function isValidRoundType(value) {
-    return Object.values(RoundType).includes(value);
-}
-
-class Neural {
-    constructor() {
-        this.value = 0;
-        this.rounded = false;
-    }
-    set_value(value_) {
-        if (isFinite(value_)) {
-            this.rounded = false;
-            this.value = value_;
-        } else throw new Error("Given value is not a number!");
-    }
-    round(round_type) {
-        if (isValidRoundType(round_type)) {
-            this.rounded = true;
-            if (round_type === RoundType.TANH) {
-                this.value = Math.tanh(this.value);
-            }
-            else if (round_type === RoundType.TO_INT) {
-                this.value = Math.round(this.value);
-            }
-            else if (round_type === RoundType.ZERO_ONE) {
-                this.value = this.value <= 0 ? 0 : 1;
-            }
-            else if (round_type === RoundType.RELU) {
-                this.value = Math.max(0, this.value);
-            }
-        } else throw new Error("Given value is not valid round type!");
-    }
-    reset() {
-        this.value = 0;
-        this.rounded = false;
-    }
-    getValue() {
-        return this.value;
-    }
-    add(value_) {
-        if (isFinite(value_)) {
-            this.value += value_;
-        } else throw new Error("Given value is not a number!");
-    }
-}
-
-class NeuralNet {
-    constructor(inputs_count, outputs_count, neurals_count, hidden_layers_count, inp_round_type, n_round_type, out_round_type) {
-        if (!Number.isInteger(inputs_count)) throw new Error("Given value for an inputs_count is not valid integer!");
-        if (!Number.isInteger(outputs_count)) throw new Error("Given value for an outputs_count is not valid integer!");
-        if (!Number.isInteger(neurals_count)) throw new Error("Given value for a neurals_count is not valid integer!");
-        if (!Number.isInteger(hidden_layers_count)) throw new Error("Given value for a hidden_layers_count is not valid integer!");
-        if (!isValidRoundType(inp_round_type)) throw new Error("Given value for a inp_round_type is not valid round type!");
-        if (!isValidRoundType(n_round_type)) throw new Error("Given value for a n_round_type is not valid round type!");
-        if (!isValidRoundType(out_round_type)) throw new Error("Given value for a out_round_type is not valid round type!");
-
-        this.inputs_layer = [];
-        this.hidden_layer = [];
-        this.outputs_layer = [];
-        this.coefficients = [];
-
-        // Initialize layers
-        for (let index = 0; index < inputs_count; index++) this.inputs_layer.push(new Neural());
-        for (let index = 0; index < outputs_count; index++) this.outputs_layer.push(new Neural());
-        for (let i = 0; i < hidden_layers_count; i++) {
-            var index = this.hidden_layer.push([]) - 1;
-            for (let j = 0; j < neurals_count; j++) {
-                this.hidden_layer[index].push(new Neural());
-            }
-        }
-
-        // Generate random coefficients between layers
-        this.generateCoefficients(inputs_count, neurals_count, hidden_layers_count, outputs_count);
-
-        // Save variables for the network
-        this.inputs_round_type = inp_round_type;
-        this.neural_round_type = n_round_type;
-        this.outputs_round_type = out_round_type;
-        this.inputs_count = inputs_count;
-        this.outputs_count = outputs_count;
-        this.neurals_count = neurals_count;
-        this.hidden_layers_count = hidden_layers_count;
-    }
-
-    // Function to generate random coefficients between layers
-    generateCoefficients(inputs_count, neurals_count, hidden_layers_count, outputs_count) {
-        // Random coefficients between inputs and first hidden layer
-        this.coefficients.push(this.createRandomMatrix(inputs_count, neurals_count));
-
-        // Random coefficients between hidden layers
-        for (let i = 0; i < hidden_layers_count - 1; i++) {
-            this.coefficients.push(this.createRandomMatrix(neurals_count, neurals_count));
-        }
-
-        // Random coefficients between the last hidden layer and outputs layer
-        this.coefficients.push(this.createRandomMatrix(neurals_count, outputs_count));
-    }
-
-    // Helper function to create a random matrix (coefficients)
-    createRandomMatrix(rows, cols) {
-        const matrix = [];
-        for (let i = 0; i < rows; i++) {
-            const row = [];
-            for (let j = 0; j < cols; j++) {
-                row.push((Math.random() * 2) - 1); // Random number between 0 and 1
-            }
-            matrix.push(row);
-        }
-        return matrix;
-    }
-
-    // Function to copy the values from another NeuralNet instance
-    copy(otherNet, changeCoefficient = false, mutationRate = 0.01, mutationScale = 0.1) {
-        if (!(otherNet instanceof NeuralNet)) throw new Error("The argument is not a valid NeuralNet instance!");
-    
-        // Copy inputs_layer
-        this.inputs_layer = otherNet.inputs_layer.map(neural => {
-            const newNeural = new Neural();
-            newNeural.set_value(neural.getValue());
-            return newNeural;
-        });
-    
-        // Copy hidden_layer
-        this.hidden_layer = otherNet.hidden_layer.map(layer => layer.map(neural => {
-            const newNeural = new Neural();
-            newNeural.set_value(neural.getValue());
-            return newNeural;
-        }));
-    
-        // Copy outputs_layer
-        this.outputs_layer = otherNet.outputs_layer.map(neural => {
-            const newNeural = new Neural();
-            newNeural.set_value(neural.getValue());
-            return newNeural;
-        });
-    
-        // Copy coefficients
-        this.coefficients = otherNet.coefficients.map(matrix => matrix.map(row => [...row]));
-    
-        // Apply mutation to coefficients if changeCoefficient is true
-        if (changeCoefficient) {
-            for (let i = 0; i < this.coefficients.length; i++) {
-                for (let j = 0; j < this.coefficients[i].length; j++) {
-                    for (let k = 0; k < this.coefficients[i][j].length; k++) {
-                        // Apply mutation based on mutationRate and mutationScale
-                        if (Math.random() < mutationRate) {
-                            this.coefficients[i][j][k] += (Math.random() - 0.5) * mutationScale; // Small random change
-                        }
-                    }
-                }
-            }
-        }
-    }    
-
-    // Calculate function
-    calculate(inputs) {
-        if (inputs.length !== this.inputs_layer.length) {
-            throw new Error("The number of input values does not match the number of input neurons!");
-        }
-
-        // Step 1: Assign input values to the input layer
-        for (let i = 0; i < inputs.length; i++) {
-            this.inputs_layer[i].set_value(inputs[i]);
-            this.inputs_layer[i].round(this.inputs_round_type); // Round inputs based on the input round type
-        }
-
-        // Step 2: Calculate values for the hidden layers
-        let previous_layer_values = this.inputs_layer;
-        for (let i = 0; i < this.hidden_layer.length; i++) {
-            let current_layer = this.hidden_layer[i];
-            for (let j = 0; j < current_layer.length; j++) {
-                let value = 0;
-                for (let k = 0; k < previous_layer_values.length; k++) {
-                    value += previous_layer_values[k].getValue() * this.coefficients[i][k][j];
-                }
-                current_layer[j].set_value(value);
-                current_layer[j].round(this.neural_round_type); // Round hidden neurons based on the neural round type
-            }
-            previous_layer_values = current_layer; // Update previous layer
-        }
-
-        // Step 3: Calculate values for the output layer
-        for (let i = 0; i < this.outputs_layer.length; i++) {
-            let value = 0;
-            for (let j = 0; j < previous_layer_values.length; j++) {
-                value += previous_layer_values[j].getValue() * this.coefficients[this.coefficients.length - 1][j][i];
-            }
-            this.outputs_layer[i].set_value(value);
-            this.outputs_layer[i].round(this.outputs_round_type); // Round output neurons based on the output round type
-        }
-
-        // Step 4: Return output values
-        return this.outputs_layer.map(neural => neural.getValue());
-    }
-
-    LearnByLD(learning_database, learning_sensivity) {
-        learning_database.inputs.forEach((inputs, i) => {
-            const expected_outputs = learning_database.outputs[i];
-            const actual_outputs = this.calculate(inputs);
-    
-            // Обучение выходного слоя
-            let output_errors = [];
-            for (let j = 0; j < this.outputs_layer.length; j++) {
-                output_errors[j] = expected_outputs[j] - actual_outputs[j];
-    
-                // Корректируем веса
-                for (let k = 0; k < this.hidden_layer[this.hidden_layer.length - 1].length; k++) {
-                    this.coefficients[this.coefficients.length - 1][k][j] += learning_sensivity * output_errors[j] * this.hidden_layer[this.hidden_layer.length - 1][k].getValue();
-                }
-            }
-    
-            // Обучение скрытых слоев (обратное распространение)
-            let layer_errors = output_errors;
-            for (let l = this.hidden_layer.length - 1; l >= 0; l--) {
-                let next_layer_errors = new Array(this.hidden_layer[l].length).fill(0);
-    
-                for (let j = 0; j < this.hidden_layer[l].length; j++) {
-                    let error = 0;
-                    for (let k = 0; k < layer_errors.length; k++) {
-                        error += layer_errors[k] * this.coefficients[l + 1][j][k];
-                    }
-                    next_layer_errors[j] = error;
-    
-                    // Корректируем веса
-                    let prev_layer = (l === 0) ? this.inputs_layer : this.hidden_layer[l - 1];
-                    for (let k = 0; k < prev_layer.length; k++) {
-                        this.coefficients[l][k][j] += learning_sensivity * error * prev_layer[k].getValue();
-                    }
-                }
-                layer_errors = next_layer_errors;
-            }
-        });
-    }
-}
-
-class LearningDatabase{
-    constructor(inputs_count, outputs_count){
-        this.inputs = [];
-        this.outputs = [];
-        this.inputs_count = inputs_count;
-        this.outputs_count = outputs_count;
-        this.multiplier = 1;
-    }
-    isValidList(value, length) {
-        //return Array.isArray(value) && value.length === length && value.every(item => typeof item === 'number');
-        return Array.isArray(value) && value.length === length;
-    }    
-    AddItem(learning_inputs, expected_outputs){
-        if(this.isValidList(learning_inputs, this.inputs_count) && this.isValidList(expected_outputs, this.outputs_count)){
-            this.inputs.push(learning_inputs);
-            this.outputs.push(expected_outputs);
-        }
-        else {
-            console.log("N1");
-            console.log(learning_inputs, this.inputs_count);
-            console.log("N2");
-            console.log(expected_outputs, this.outputs_count);
-            throw new Error("Given lists are bad");
-        }
-    }
-    get Size() {return this.inputs.length;}
-    multiplyAll(number){
-        this.inputs.forEach((val, i) => {
-            this.inputs[i] = val.map((val2) => val2 * number);
-        });
-        this.outputs.forEach((val, i) => {
-            this.outputs[i] = val.map((val2) => val2 * number);
-        });
-        this.multiplier *= number;
-    }
-    getWithoutMultiplier(){
-        const inverseMultiplier = 1 / this.multiplier;
-        const newInputs = this.inputs.map(val => val.map((val2) => val2 * inverseMultiplier));
-        const newOutputs = this.outputs.map(val => val.map((val2) => val2 * inverseMultiplier));
-
-        const newDatabase = new LearningDatabase(this.inputs_count, this.outputs_count);
-        newDatabase.inputs = newInputs;
-        newDatabase.outputs = newOutputs;
-        newDatabase.multiplier = 1;
-
-        return newDatabase;
-    }
-}
-
-class Generation{
-    constructor(inputs_count, outputs_count, neurals_count, hidden_layers_count, inp_round_type, n_round_type, out_round_type, generation_size, learning_database){
-        this.generation = [];
-        this.inputs_count = inputs_count;
-        this.outputs_count = outputs_count;
-        this.neurals_count = neurals_count;
-        this.hidden_layers_count = hidden_layers_count;
-        this.learning_database = learning_database;
-        for (let index = 0; index < generation_size; index++) {
-            this.generation.push(new NeuralNet(inputs_count, outputs_count, neurals_count, hidden_layers_count, inp_round_type, n_round_type, out_round_type));
-        }
-    }
-
-    bestNN(negativeSelection, learning_database = this.learning_database) {
-        var the_smallest_error = this.calculateError(this.generation[0], learning_database);
-        var index_nn = 0;
-        
-        this.generation.forEach((element, index) => {
-            if(document.getElementById('ShowEachIter').checked) console.log("NN "+ index + " of " + this.generation.length);
-            
-            var error_nn = this.calculateError(element, learning_database);  // Используем calculateError для вычисления ошибки
-    
-            if ((negativeSelection && error_nn > the_smallest_error) || (!negativeSelection && error_nn < the_smallest_error)) {
-                the_smallest_error = error_nn;
-                index_nn = index;
-            }
-        });
-        
-        document.getElementById('error_nn').innerText = "Error: " + the_smallest_error +
-        "\nAverage error on one output: " + this.reverseErrorCalculation(the_smallest_error / this.outputs_count) + 
-        "\nFactual error on one output (considering multiplier): " + (this.reverseErrorCalculation(the_smallest_error / this.outputs_count) / learning_database.multiplier);
-        return this.generation[index_nn];
-    }
-
-    calculateError(nn, learning_database = this.learning_database) {
-        return learning_database.inputs.reduce((totalError, inputs_, i) => {
-            const outputs_ = learning_database.outputs[i];
-            const result = nn.calculate(inputs_);
-            /*return totalError + outputs_.reduce((sum, value, idx) => {
-                let diff = value - result[idx];
-                return sum + Math.pow(diff, 2);
-            }, 0);*/
-            return totalError + outputs_.reduce((sum, value, idx) => {
-                let diff = Math.abs(value - result[idx]);
-                return (diff > 1) ? (sum + Math.pow(diff, 2)) : (sum + Math.sqrt(diff));
-            }, 0);
-        }, 0) / learning_database.Size;
-    }
-
-    reverseErrorCalculation(num) {
-        if (num > 1) {
-            return Math.sqrt(num);
-        } else {
-            return Math.pow(num, 2);
-        }
-    }    
-
-    passOneGeneration(mutationRate = 0.01, mutationScale = 0.1, negativeSelection = false, learning_database = this.learning_database) {
-        var best_nn = this.bestNN(negativeSelection, learning_database);
-        this.generation.forEach((nn, index) => {
-            nn.copy(best_nn, index !== 0, mutationRate, mutationScale);
-        });
-    }
-}
-
-function updateDatasetDropdown() {
-    let select = document.getElementById('dataset_chosen');
-    if(select) {
-        select.innerHTML = '';
-
-        all_LDBs.forEach((ds, index) => {
-            let option = document.createElement("option");
-            option.value = index;
-            option.textContent = "Dataset " + (index + 1);
-            select.appendChild(option);
-        });
-    }
-}
-
-function Backpropagation(sensivity){
-    var currentDataset_ = currentDataset();
-
-    console.log(sensivity, currentDataset_);
-    
-    neural_net.LearnByLD(currentDataset_, sensivity);
-    document.getElementById('error_nn2').innerText = "Error: " + gen.calculateError(neural_net) + 
-    "\nError on one output: " + gen.reverseErrorCalculation(gen.calculateError(neural_net) / neural_net.outputs_count) + 
-    "\nFactual error on one output: " + (gen.reverseErrorCalculation(gen.calculateError(neural_net) / neural_net.outputs_count) / currentDataset_.multiplier);
-}
-
-document.addEventListener("DOMContentLoaded", function() {
-    updateDatasetDropdown();
-});
-
-function currentDataset() {
-    return all_LDBs[document.getElementById('dataset_chosen').value];
-}
-
-function imageToArray(imgSrc, width = 150, height = 150, grayscale = true) {
-    return new Promise((resolve, reject) => {
-        const img = new Image();
-        img.crossOrigin = "Anonymous"; // Чтобы можно было загружать изображения с других источников
-        img.src = imgSrc;
-
-        img.onload = () => {
-            const canvas = document.createElement("canvas");
-            const ctx = canvas.getContext("2d");
-
-            canvas.width = width;
-            canvas.height = height;
-            ctx.drawImage(img, 0, 0, width, height);
-
-            const imageData = ctx.getImageData(0, 0, width, height).data;
-            let pixelArray = [];
-
-            if (grayscale) {
-                // Преобразуем в черно-белый (одно значение на пиксель)
-                for (let i = 0; i < imageData.length; i += 4) {
-                    let gray = (imageData[i] + imageData[i + 1] + imageData[i + 2]) / 3;
-                    pixelArray.push(gray / 255); // Нормализация [0, 1]
-                }
-            } else {
-                // RGB (три значения на пиксель)
-                for (let i = 0; i < imageData.length; i += 4) {
-                    pixelArray.push(imageData[i] / 255, imageData[i + 1] / 255, imageData[i + 2] / 255);
-                }
-            }
-
-            resolve(pixelArray);
-        };
-
-        img.onerror = () => reject("Ошибка загрузки изображения");
+    var letters = "qweéěrřtťzžuúůiíoópaásšdďfghjklyýxcčvbnňm0123456789";
+    text.split('').forEach(char => {
+        let index = letters.indexOf(char);
+        result.push(index === -1 ? 0 : index / (letters.length - 1)); // Нормализация в [0, 1]
     });
+
+    while (result.length < neccessaryInputsCount) {
+        result.push(0);
+    }
+    if(result.length > neccessaryInputsCount) throw new Error("Text was too long");
+    return result;
 }
 
-function Hardness() {
-    var res = 0;
-    res += gen.inputs_count * gen.neurals_count;
-    res += gen.outputs_count * gen.neurals_count;
-    res += gen.neurals_count * gen.neurals_count * (gen.hidden_layers_count - 1);
-    console.log("One NN hardness: " + res);
-    res *= learningDatabase.Size;
-    console.log("One generation hardness: " + res);
+var learningDatabase = new LearningDatabase(17, 3);
+var learningDatabase2 = new LearningDatabase(17, 3);
+
+var en_words = ["dog","cat","house","car","tree","river","mountain","computer","phone","apple","banana","table","chair","book","window","door","flower","sun","moon","star","ocean","lake","cloud","rain","snow","sand","beach","island","forest","desert","bird","fish","tiger","lion","elephant","giraffe","monkey","horse","cow","sheep","city","village","road","bridge","tower","castle","church","school","hospital","restaurant","market","shop","bank","hotel","airport","station","bus","train","airplane","bicycle","motorcycle","boat","ship","submarine","rocket","astronaut","scientist","engineer","doctor","nurse","teacher","student","artist","musician","writer","actor","director","chef","farmer","driver","pilot","sailor","soldier","king","queen","prince","princess","president","minister","lawyer","judge","policeman","firefighter","detective","guard","thief","criminal","prison","weapon","sword","shield","bow","arrow","gun","bullet","grenade","bomb","robot","machine","factory","warehouse","laboratory","museum","library","cinema","theater","stadium","park","garden","farm","field","mountain","canyon","volcano","earthquake","storm","hurricane","tornado","tsunami","flood","drought","famine","war","battle","victory","defeat","hero","villain","monster","ghost","zombie","vampire","werewolf","dragon","wizard","witch","spell","curse","magic","potion","treasure","gold","diamond","emerald","ruby","sapphire","crystal","crown","throne","kingdom","empire","nation","flag","anthem","constitution","law","justice","freedom","rights","duty","honor","truth","lie","fear","courage","love","hate","happiness","sadness","anger","surprise","disgust","envy","pride","shame","guilt","regret","forgiveness","revenge","peace","war","strategy","tactics","history","future","science","technology","physics","chemistry","biology","mathematics","geometry","algebra","calculus","statistics","computer","software","hardware","internet","network","database","server","client","protocol","encryption","hacking","virus","security","word"];
+var cz_words = ["pes","kočka","dům","auto","strom","řeka","hora","počítač","telefon","jablko","banán","stůl","židle","kniha","okno","dveře","květina","slunce","měsíc","hvězda","oceán","jezero","mrak","déšť","sníh","písek","pláž","ostrov","les","poušť","pták","ryba","tygr","lev","slon","žirafa","opice","kůň","kráva","ovce","město","vesnice","silnice","most","věž","zámek","kostel","škola","nemocnice","restaurace","trh","obchod","banka","hotel","letiště","stanice","autobus","vlak","letadlo","kolo","motocykl","loď","loďka","ponorka","raketa","astronaut","vědec","inženýr","doktor","sestřička","učitel","student","umělec","hudebník","spisovatel","herec","režisér","šéfkuchař","farmář","řidič","pilot","námořník","voják","král","královna","princ","princezna","prezident","ministr","advokát","soudce","policista","hasič","detektiv","strážce","zloděj","zločinec","vězení","zbraň","meč","štít","luk","šíp","puška","kulka","granát","bomba","robot","stroj","továrna","sklad","laboratoř","muzeum","knihovna","kino","divadlo","stadion","park","zahrada","farma","pole","hora","kaňon","vulkán","zemětřesení","bouře","hurikán","tornádo","tsunami","povodeň","sucho","hladomor","válka","bitva","vítězství","porážka","hrdina","padouch","monstrum","duch","zombi","upír","vlkodlak","drak","čaroděj","čarodějnice","kouzlo","kletba","magie","lektvar","poklad","zlato","diamant","smaragd","rubín","safír","krystal","koruna","trůn","království","říše","národ","vlajka","hymna","ústava","zákon","spravedlnost","svoboda","práva","povinnost","ctnost","pravda","lež","strach","odvaha","láska","nenávist","štěstí","smutek","hněv","překvapení","zhnusení","závist","pýcha","hanba","vina","lítost","odpuštění","pomsta","mír","válka","strategie","taktika","historie","budoucnost","věda","technologie","fyzika","chemie","biologie","matematika","geometrie","algebra","kalkulus","statistika","počítač","software","hardware","internet","síť","databáze","server","klient","protokol","šifrování","hackování","virus","bezpečnost","slovo"];
+
+var en_extra_words = ["candle","pencil","eraser","notebook","backpack","pillow","blanket","mirror","camera","keyboard","mouse","monitor","printer","television","radio","headphones","microphone","battery","lamp","couch","carpet","curtain","wardrobe","shelf","staircase","balcony","garage","basement","attic","chimney","fence","gate","garden","fountain","statue","monument","tower","skyscraper","bridge","tunnel","subway","elevator","escalator","wheel","engine","fuel","electricity","solar","wind","hydro","nuclear","satellite","antenna","signal","frequency","channel","broadcast","record","document","contract","agreement","certificate","receipt","invoice","check","passport","ticket","map","compass","globe","calendar","clock","watch","timer","stopwatch","alarm","password","username","account","profile","settings","button","switch","lever","handle","knob","screw","bolt","nut","wire","cable","pipe","hose","valve","pump","fan","heater","cooler","freezer","oven","stove","microwave","blender","toaster","dishwasher","washing","dryer","vacuum","broom","mop","sponge","bucket","soap","shampoo","toothpaste","toothbrush","razor","scissors","towel","napkin","plate","bowl","cup","glass","bottle","fork","spoon","knife","tray","basket","bag","purse","wallet","suitcase","briefcase","envelope","pen","marker","chalk","board","screen","projector","remote","joystick","game","puzzle","riddle","chess","checkers","cards","dice","ball","bat","racket","net","goal","whistle","helmet","gloves","boots","sneakers","jeans","jacket","coat","scarf","hat","cap","glasses","umbrella","ring","bracelet","necklace","earring","belt","zipper","pocket","wallet"];
+var cz_extra_words = ["svíčka","tužka","guma","sešit","batoh","polštář","deka","zrcadlo","kamera","klávesnice","myš","monitor","tiskárna","televize","rádio","sluchátka","mikrofon","baterie","lampa","pohovka","koberec","závěs","skříň","police","schodiště","balkon","garáž","sklep","půda","komín","plot","brána","zahrada","fontána","socha","památka","věž","mrakodrap","most","tunel","metro","výtah","eskalátor","kolo","motor","palivo","elektřina","solární","větrná","vodní","jaderná","satelit","anténa","signál","frekvence","kanál","vysílání","záznam","dokument","smlouva","dohoda","certifikát","účtenka","faktura","šek","pas","lístek","mapa","kompas","glóbus","kalendář","hodiny","hodinky","časovač","stopky","budík","heslo","uživatelské","účet","profil","nastavení","tlačítko","vypínač","páka","rukojeť","knoflík","šroub","šroubovák","matice","drát","kabel","trubka","hadice","ventil","čerpadlo","ventilátor","topidlo","chladicí","mrazák","trouba","sporák","mikrovlnka","mixér","topinkovač","myčka","pračky","sušička","vysavač","koště","mop","houba","kbelík","mýdlo","šampon","zubní","kartáček","žiletka","nůžky","ručník","ubrousek","talíř","miska","hrnek","sklenice","láhev","vidlička","lžíce","nůž","tác","košík","taška","kabelka","peněženka","kufr","aktovka","obálka","pero","fix","křída","tabule","obrazovka","projektor","dálkový","joystick","hra","hlavolam","šachy","dáma","karty","kostky","míč","pálka","raketa","síť","branka","píšťalka","přilba","rukavice","boty","tenisky","džíny","bunda","kabát","šála","klobouk","čepice","brýle","deštník","prsten","náramek","náhrdelník","náušnice","pásek","zip","kapsa","peněženka"];
+
+for (let i = 0; i < en_words.length; i++) {
+    if(cz_words.includes(en_words[i])){
+        learningDatabase.AddItem(TextToInputs(en_words[i], 17), [-1, -1, 1]);
+        continue;
+    }
+    learningDatabase.AddItem(TextToInputs(en_words[i], 17), [1, -1, -1]);
+}
+for (let i = 0; i < cz_words.length; i++) {
+    learningDatabase.AddItem(TextToInputs(cz_words[i], 17), [-1, 1, -1]);
 }
 
-function SaveToJSON() {
-    var object_ = {
-        'generation': gen,
-        'neural_net': neural_net,
-        'all_LDBs': all_LDBs
-    };
-    return JSON.stringify(object_);
+for (let i = 0; i < en_extra_words.length; i++) {
+    if(cz_extra_words.includes(en_extra_words[i])){
+        learningDatabase2.AddItem(TextToInputs(en_extra_words[i], 17), [-1, -1, 1]);
+        continue;
+    }
+    learningDatabase2.AddItem(TextToInputs(en_extra_words[i], 17), [1, -1, -1]);
+}
+for (let i = 0; i < cz_extra_words.length; i++) {
+    learningDatabase2.AddItem(TextToInputs(cz_extra_words[i], 17), [-1, 1, -1]);
 }
 
-function DBsData(){
-    all_LDBs.forEach((db, index) => {
-        console.log("Learning dataset " + (index + 1) + ": " + db.Size + " items.");
-    });
-}
-/*
-/////////////////////////////////////////////////////
-
-var inputs_count = 28*28;
-var outputs_count = 2;
-
-var learningDatabase = new LearningDatabase(inputs_count, outputs_count);
-var learningDatabase2 = new LearningDatabase(inputs_count, outputs_count);
-
-var gen = new Generation(inputs_count, outputs_count, 300, 2, RoundType.NO_ROUND, RoundType.TANH, RoundType.NO_ROUND, 20, learningDatabase);
-var neural_net = new NeuralNet(inputs_count, outputs_count, 300, 2, RoundType.NO_ROUND, RoundType.TANH, RoundType.NO_ROUND);
-
-var all_LDBs = [learningDatabase, learningDatabase2];
-
-///////////////////////////////////////////////////
-
-var zeros = [];
-var ones = [];
-
-AllImages("/archive/numbers/mnist_png/Hnd/Sample0/").then(result => {
-    zeros = result;
-    zeros.forEach((url, index) => {
-        if(index > 200) return;
-        imageToArray(url, 28, 28, true).then(pixelArray => {
-            if(index % 2 == 0) learningDatabase.AddItem(pixelArray, [1, 0]);
-            else learningDatabase2.AddItem(pixelArray, [1, 0]);
-            console.log("zero " + index + " / " + zeros.length);
-        }).catch(error => console.error(error));
-    });    
-});
-
-AllImages("/archive/numbers/mnist_png/Hnd/Sample1/").then(result => {
-    ones = result;
-    ones.forEach((url, index) => {
-        if(index > 200) return;
-        imageToArray(url, 28, 28, true).then(pixelArray => {
-            if(index % 2 == 0) learningDatabase.AddItem(pixelArray, [0, 1]);
-            else learningDatabase2.AddItem(pixelArray, [0, 1]);
-            console.log("one " + index + " / " + ones.length);
-        }).catch(error => console.error(error));
-    });
-});
-
-function Test(url) {
-    imageToArray(url, 28, 28, true).then(pixelArray => {
-        var answer1 = gen.generation[0].calculate(pixelArray);
-        console.log(answer1[0], answer1[1]);
-        console.log(answer1[0] > answer1[1] ? "0" : "1");
-    }).catch(error => console.error(error));
+function Test(word) {
+    var res = nn1.calculateOutput(TextToInputs(word, 17));
+    if(en_words.includes(word)) console.log("Word is in EN database.");
+    if(cz_words.includes(word)) console.log("Word is in CZ database.");
+    console.log(res[0], res[1], res[2]);
+    
+    if(res[0] > res[1] && res[0]>res[2]) return "EN word";
+    else if(res[1] > res[0] && res[1]>res[2]) return "CZ word";
+    else return "Word is in both languages";
 }
 
-*/
+var generation = new Generation(17, 3, [50, 20, 20, 10, 5], 50, RoundType.NO_ROUND, RoundType.TANH, RoundType.NO_ROUND, learningDatabase);
+
+console.log(learningDatabase);
+console.log("Learning DB size: " + learningDatabase.Size);
+
+var nn1 = generation.generation[0];
+
+// gen.learning_database = learningDatabase2;

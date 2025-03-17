@@ -1,164 +1,74 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Neural Network Learning</title>
-    <link rel="stylesheet" href="style.css">
-    <script src="usefulFunctions.js"></script>
-    <script src="script.js"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Neural nets manager</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="neuralNet.js"></script>
 </head>
 <body>
-    <label for="generations_count">Generations count:</label>
-    <input type="number" name="generations_count" id="generations_count" value="10000"> <br>
-    
-    <button id="button_go">Start</button>
-    <button id="button_go_one">Go one</button>
+  <div>
+    <label for="mutationRateInput">Mutation Rate:</label>
+    <input id="mutationRateInput" type="number" step="0.001" value="0.01">
+  </div>
+  <div>
+    <label for="mutationScaleInput">Mutation Scale:</label>
+    <input id="mutationScaleInput" type="number" step="0.01" value="0.1">
+  </div>
+  <div>
+    <button id="passOneGenButton">Pass One Generation</button>
+    <button id="startTrainingButton">Start Training</button>
+    <button id="stopTrainingButton" disabled>Stop Training</button>
+  </div>
+  <p id="learning_data_p"></p>
 
-    <progress value="" max=""></progress>
-    
-    <p id="error_nn"></p>
-    <p id="generations_passed"></p>
-    
-    <p id="mutationRate"></p>
-    <button id="mutationRate_plus">*10</button>
-    <button id="mutationRate_plus2">*1.1</button>
-    <button id="mutationRate_minus2">/1.1</button>
-    <button id="mutationRate_minus">/10</button><br>
+  <script src="script.js"></script>
+  <script>
+    // Обработчик для одиночного прохождения поколения
+    document.getElementById("passOneGenButton").onclick = function () {
+      var mutationRate = parseFloat(document.getElementById("mutationRateInput").value);
+      var mutationScale = parseFloat(document.getElementById("mutationScaleInput").value);
+      generation.passOneGeneration(mutationRate, mutationScale);
+      document.getElementById("learning_data_p").innerText = generation.dataInText();
+    };
 
-    <p id="mutationScale"></p>
-    <button id="mutationScale_plus">*10</button>
-    <button id="mutationScale_plus2">*1.1</button>
-    <button id="mutationScale_minus2">/1.1</button>
-    <button id="mutationScale_minus">/10</button><br>
+    var trainingInterval;
+    var generationTime; // Переменная для хранения времени одного поколения
 
-    <input type="checkbox" id="negSelection">
-    <label for="negSelection">Negative selection</label><br>
+    // Запуск асинхронного обучения
+    document.getElementById("startTrainingButton").onclick = function () {
+      // Отключаем кнопку старта и включаем стоп
+      this.disabled = true;
+      document.getElementById("stopTrainingButton").disabled = false;
 
-    <input type="checkbox" id="bigGenerations" checked>
-    <label for="bigGenerations">Big generations (set this if one generation takes much time)</label><br>
+      // Замеряем время выполнения одного поколения
+      var startTime = performance.now();
+      var mutationRate = parseFloat(document.getElementById("mutationRateInput").value);
+      var mutationScale = parseFloat(document.getElementById("mutationScaleInput").value);
+      
+      // Вызываем одно поколение, чтобы зафиксировать время
+      generation.passOneGeneration(mutationRate, mutationScale);
+      
+      var endTime = performance.now();
+      generationTime = endTime - startTime; // Время одного поколения в миллисекундах
+      console.log("Generation time:", generationTime);
 
-    <input type="checkbox" id="ShowEachIter" checked>
-    <label for="ShowEachIter">Show each iteration in console</label><br>
+      // Используем время одного поколения для setInterval
+      trainingInterval = setInterval(function () {
+        var mutationRate = parseFloat(document.getElementById("mutationRateInput").value);
+        var mutationScale = parseFloat(document.getElementById("mutationScaleInput").value);
+        generation.passOneGeneration(mutationRate, mutationScale);
+        document.getElementById("learning_data_p").innerText = generation.dataInText();
+      }, generationTime);
+    };
 
-    <label for="dataset_chosen">Chosen dataset: </label>
-    <select name="dataset_chosen" id="dataset_chosen">
-    </select>
-
-    <h2>Backpropagation</h2>
-    <p id="error_nn2"></p>
-    <button id="backpropagation_toggle">Start</button>
-    <button id="backpropagation_button" onclick="Backpropagation(sensitivity);">Go one</button>
-    <p id="sensitivityLabel"></p>
-    <button id="sensitivityPlusBtn">*10</button>
-    <button id="sensitivityBtn1">*-1</button>
-    <button id="sensitivityMinusBtn">/10</button><br>
-    <button id="Reset_backpropogated_net_btn">Reset neural net</button>
-
-    <hr>
-    <h3>Other</h3>
-    <a href="DifferentPrograms/Game/index.html">Game played by AI</a>
-    
-    <script>
-        var backpropagating = false; // Флаг для отслеживания обучения
-
-        document.getElementById('Reset_backpropogated_net_btn').onclick = () => {
-            neural_net = new NeuralNet(inputs_count, outputs_count, 5, 3, RoundType.NO_ROUND, RoundType.TANH, RoundType.NO_ROUND);
-        };
-    
-        document.getElementById('backpropagation_toggle').onclick = () => {
-            backpropagating = !backpropagating;
-            if (backpropagating) {
-                document.getElementById('backpropagation_toggle').innerText = "Pause";
-                startBackpropagation();
-            } else {
-                document.getElementById('backpropagation_toggle').innerText = "Start";
-            }
-        };
-    
-        function startBackpropagation() {
-            if (!backpropagating) {
-                document.getElementById('backpropagation_toggle').innerText = "Start";
-                return;
-            }
-    
-            Backpropagation(sensitivity);
-    
-            setTimeout(startBackpropagation, 10); // Небольшая задержка для UI
-        }
-    </script>
-    
-    <script>
-        var mutationRate = 0.01;
-        var mutationScale = 0.1;
-        var learning = false;
-        var currentGeneration = 0;
-        var totalGenerations = 100; // Default
-        var generationsPassed = 0;
-        var sensitivity = 0.1;
-
-        RefreshUI();
-
-        function RefreshUI() {
-            document.getElementById('mutationRate').innerText = "Mutation Rate: " + mutationRate;
-            document.getElementById('mutationScale').innerText = "Mutation Scale: " + mutationScale;
-            document.getElementById('generations_passed').innerText = "Generations passed: " + generationsPassed;
-            document.getElementById('sensitivityLabel').innerText = "Sensitivity: " + sensitivity;
-        }
-
-        document.getElementById('mutationRate_plus').onclick = () => { mutationRate *= 10; RefreshUI(); }
-        document.getElementById('mutationRate_minus').onclick = () => { mutationRate /= 10; RefreshUI(); }
-        document.getElementById('mutationScale_plus').onclick = () => { mutationScale *= 10; RefreshUI(); }
-        document.getElementById('mutationScale_minus').onclick = () => { mutationScale /= 10; RefreshUI(); }
-        document.getElementById('mutationRate_plus2').onclick = () => { mutationRate *= 1.1; RefreshUI(); }
-        document.getElementById('mutationRate_minus2').onclick = () => { mutationRate /= 1.1; RefreshUI(); }
-        document.getElementById('mutationScale_plus2').onclick = () => { mutationScale *= 1.1; RefreshUI(); }
-        document.getElementById('mutationScale_minus2').onclick = () => { mutationScale /= 1.1; RefreshUI(); }
-        document.getElementById('sensitivityPlusBtn').onclick = () => { sensitivity *= 10; RefreshUI(); }
-        document.getElementById('sensitivityMinusBtn').onclick = () => { sensitivity /= 10; RefreshUI(); }
-        document.getElementById('sensitivityBtn1').onclick = () => { sensitivity *= -1; RefreshUI(); }
-
-
-        document.getElementById('button_go').onclick = () => {
-            learning = !learning;
-            if (learning) {
-                totalGenerations = parseInt(document.getElementById('generations_count').value);
-                document.getElementById('button_go').innerText = "Pause";
-                startLearning();
-            } else {
-                document.getElementById('button_go').innerText = "Start";
-            }
-        };
-
-        document.getElementById('button_go_one').onclick = () => {
-            gen.passOneGeneration(mutationRate, mutationScale, document.getElementById('negSelection').checked, currentDataset());
-            generationsPassed++;
-            RefreshUI();
-        };
-
-        function startLearning() {
-            if (!learning || currentGeneration >= totalGenerations) {
-                document.getElementById('button_go').innerText = "Start";
-                currentGeneration = 0;
-                return;
-            }
-
-            gen.passOneGeneration(mutationRate, mutationScale, document.getElementById('negSelection').checked, currentDataset());
-            
-            if(document.getElementById('bigGenerations').checked) console.log("One generation passed, " + (currentGeneration + 1));
-
-            document.getElementsByTagName('progress')[0].value = currentGeneration;
-            document.getElementsByTagName('progress')[0].max = totalGenerations;
-
-            currentGeneration++;
-            generationsPassed++;
-            RefreshUI();
-
-            if (learning) {
-                startLearning(); // Запускаем новую итерацию только после завершения предыдущей
-            }
-        }
-
-    </script>
+    // Остановка обучения
+    document.getElementById("stopTrainingButton").onclick = function () {
+      clearInterval(trainingInterval);
+      this.disabled = true;
+      document.getElementById("startTrainingButton").disabled = false;
+    };
+  </script>
 </body>
 </html>

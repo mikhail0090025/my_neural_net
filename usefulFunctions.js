@@ -44,7 +44,7 @@ function renderGraph(data, canvasId) {
 
     // Определяем минимальное и максимальное значение для масштабирования
     //const min = Math.min(...data);
-    const min = 0;
+    const min = Math.min(0, Math.min(...data));
     const max = Math.max(...data);
     const range = max - min || 1; // чтобы избежать деления на 0
 
