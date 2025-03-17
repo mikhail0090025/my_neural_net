@@ -2,7 +2,7 @@ const playerSize = 0.5;
 const outputsCount = 7;
 const mapSize = 50;
 const finishSize = 2;
-const framesForOneGen = 12000;
+const framesForOneGen = 500;
 const playersCount = 7;
 
 const walkSpeed = 1.5;
@@ -481,5 +481,5 @@ var walls = [
     new Wall(mapSize - 26, mapSize - 7.5, 20, 2)
 ];
 
-var game = new Game(playersCount, new Point(5, 5), new Point(45, 45), walls);
+var game = new Game(playersCount, new Point(45, 5), new Point(45, 45), walls);
 game.UpdateUI();

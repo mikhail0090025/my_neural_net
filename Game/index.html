@@ -30,8 +30,50 @@
         <button onclick="adjustMutationScale(0.1, true)">÷10</button>
     </div>
 
+    <div>
+        <canvas id="graph_canvas"></canvas><br>
+        <label for="graph_coefficient">Coefficient:</label>
+        <input type="number" name="graph_coefficient" id="graph_coefficient"><br>
+        <button id="draw_graph_fk">Draw FK</button>
+        <button id="draw_graph_ek">Draw EK</button>
+    </div>
+
     <script src="game.js"></script>
     <script>
+        function processAndRenderData(data, coeffInputId, canvasId) {
+            const coeff = parseFloat(document.getElementById(coeffInputId).value);
+            if (isNaN(coeff)) {
+                console.error("Некорректный коэффициент сглаживания");
+                return;
+            }
+
+            const smoothedData = smoothData(data, coeff);
+            const canvas = document.getElementById(canvasId);
+            if (!canvas) {
+                console.error("Canvas с таким ID не найден");
+                return;
+            }
+
+            const ctx = canvas.getContext("2d");
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            ctx.strokeStyle = "blue";
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            
+            smoothedData.forEach((value, index) => {
+                const x = (canvas.width / smoothedData.length) * index;
+                const y = canvas.height - (value / Math.max(...smoothedData)) * canvas.height;
+                if (index === 0) {
+                    ctx.moveTo(x, y);
+                } else {
+                    ctx.lineTo(x, y);
+                }
+            });
+
+            ctx.stroke();
+        }
+
         function updateUI() {
             document.getElementById("mutationRateDisplay").textContent = mutationRate.toFixed(5);
             document.getElementById("mutationScaleDisplay").textContent = mutationScale.toFixed(5);
@@ -83,6 +125,14 @@
             var time_ = measureExecutionTime(() => this.game.passOneGeneration());
             if(time_ < 1000) alert("Generation has taken " + time_ + " milliseconds.");
             else alert("Generation has taken " + (time_ / 1000.0) + " seconds.");
+        });
+
+        document.getElementById("draw_graph_fk").addEventListener("click", () => {
+            processAndRenderData(friendlyKillsPerGen, "graph_coefficient", "graph_canvas");
+        });
+
+        document.getElementById("draw_graph_ek").addEventListener("click", () => {
+            processAndRenderData(enemyKillsPerGen, "graph_coefficient", "graph_canvas");
         });
 
         updateUI();
